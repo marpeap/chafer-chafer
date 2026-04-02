@@ -30,8 +30,8 @@ async function handleActivitySignup(interaction: ButtonInteraction): Promise<voi
 
   await interaction.deferUpdate();
 
-  const activity = await db().activity.findUnique({
-    where: { id: activityId },
+  const activity = await db().activity.findFirst({
+    where: { id: activityId, guildId: interaction.guildId! },
     include: { signups: true },
   });
 
@@ -80,8 +80,8 @@ async function handleActivitySignup(interaction: ButtonInteraction): Promise<voi
   }
 
   // Refresh and update embed
-  const updated = await db().activity.findUnique({
-    where: { id: activityId },
+  const updated = await db().activity.findFirst({
+    where: { id: activityId, guildId: interaction.guildId! },
     include: { signups: true },
   });
 
@@ -106,8 +106,8 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
 
   await interaction.deferUpdate();
 
-  const quickCall = await db().quickCall.findUnique({
-    where: { id: quickCallId },
+  const quickCall = await db().quickCall.findFirst({
+    where: { id: quickCallId, guildId: interaction.guildId! },
     include: { responses: true },
   });
 
@@ -156,8 +156,8 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
   }
 
   // Check if LFG is now filled
-  const updatedCall = await db().quickCall.findUnique({
-    where: { id: quickCallId },
+  const updatedCall = await db().quickCall.findFirst({
+    where: { id: quickCallId, guildId: interaction.guildId! },
     include: { responses: true },
   });
 

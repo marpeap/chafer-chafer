@@ -49,7 +49,7 @@ async function boot(): Promise<void> {
   const fastify = Fastify({ logger: false });
   fastify.get('/health', async () => {
     const discordOk = discordClient().isReady();
-    const redisOk = redis().status === 'ready';
+    const redisOk = redis().status !== 'end';
     let dbOk = false;
     try {
       await prisma.$queryRaw`SELECT 1`;
@@ -78,7 +78,11 @@ async function boot(): Promise<void> {
     log.info({ signal }, 'Shutting down...');
     stopAllJobs();
     destroyClient();
-    await fastify.close();
+    try {
+      await fastify.close();
+    } catch (err) {
+      log.error({ err }, 'Error closing Fastify');
+    }
     await disconnectRedis();
     await disconnectDatabase();
     log.info('Shutdown complete');

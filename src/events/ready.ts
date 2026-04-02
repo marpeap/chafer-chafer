@@ -16,12 +16,16 @@ export function registerReadyEvent(client: Client): void {
 
     // Sync guilds to DB
     for (const [guildId, guild] of readyClient.guilds.cache) {
-      await db().discordGuild.upsert({
-        where: { guildId },
-        create: { guildId, name: guild.name },
-        update: { name: guild.name },
-      });
-      log.info({ guildId, name: guild.name }, 'Guild synced');
+      try {
+        await db().discordGuild.upsert({
+          where: { guildId },
+          create: { guildId, name: guild.name },
+          update: { name: guild.name },
+        });
+        log.info({ guildId, name: guild.name }, 'Guild synced');
+      } catch (err) {
+        log.error({ err, guildId, name: guild.name }, 'Failed to sync guild');
+      }
     }
   });
 }

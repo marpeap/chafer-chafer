@@ -9,21 +9,25 @@ export function registerMemberEvents(client: Client): void {
   client.on('guildMemberAdd', async (member) => {
     log.info({ userId: member.id, guild: member.guild.id }, 'Member joined');
 
-    await db().discordMember.upsert({
-      where: {
-        guildId_userId: { guildId: member.guild.id, userId: member.id },
-      },
-      create: {
-        guildId: member.guild.id,
-        userId: member.id,
-        username: member.user.username,
-        joinedAt: member.joinedAt,
-      },
-      update: {
-        username: member.user.username,
-        joinedAt: member.joinedAt,
-      },
-    });
+    try {
+      await db().discordMember.upsert({
+        where: {
+          guildId_userId: { guildId: member.guild.id, userId: member.id },
+        },
+        create: {
+          guildId: member.guild.id,
+          userId: member.id,
+          username: member.user.username,
+          joinedAt: member.joinedAt,
+        },
+        update: {
+          username: member.user.username,
+          joinedAt: member.joinedAt,
+        },
+      });
+    } catch (err) {
+      log.error({ err, userId: member.id, guild: member.guild.id }, 'Failed to upsert member on join');
+    }
   });
 
   client.on('guildMemberRemove', async (member) => {

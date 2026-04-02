@@ -26,31 +26,33 @@ export function registerJob(job: ScheduledJob): void {
       const dedupKey = `${job.name}:${startedAt.toISOString().slice(0, 13)}`; // hourly dedup
 
       try {
-        // Check dedup
-        const existing = await db().jobRun.findFirst({
-          where: { jobName: job.name, dedupKey, status: 'success' },
+        // Atomic dedup check + job execution in a transaction
+        await db().$transaction(async (tx) => {
+          const existing = await tx.jobRun.findFirst({
+            where: { jobName: job.name, dedupKey, status: 'success' },
+          });
+          if (existing) {
+            log.info({ job: job.name, dedupKey }, 'Job already ran successfully, skipping');
+            return;
+          }
+
+          log.info({ job: job.name }, 'Job starting');
+          await job.handler();
+          const durationMs = Date.now() - startedAt.getTime();
+
+          await tx.jobRun.create({
+            data: {
+              jobName: job.name,
+              dedupKey,
+              status: 'success',
+              startedAt,
+              finishedAt: new Date(),
+              durationMs,
+            },
+          });
+
+          log.info({ job: job.name, durationMs }, 'Job completed');
         });
-        if (existing) {
-          log.info({ job: job.name, dedupKey }, 'Job already ran successfully, skipping');
-          return;
-        }
-
-        log.info({ job: job.name }, 'Job starting');
-        await job.handler();
-        const durationMs = Date.now() - startedAt.getTime();
-
-        await db().jobRun.create({
-          data: {
-            jobName: job.name,
-            dedupKey,
-            status: 'success',
-            startedAt,
-            finishedAt: new Date(),
-            durationMs,
-          },
-        });
-
-        log.info({ job: job.name, durationMs }, 'Job completed');
       } catch (err) {
         const durationMs = Date.now() - startedAt.getTime();
         log.error({ job: job.name, err }, 'Job failed');
@@ -65,7 +67,7 @@ export function registerJob(job: ScheduledJob): void {
             durationMs,
             error: err instanceof Error ? err.message : String(err),
           },
-        }).catch(() => {});
+        }).catch((err) => { log.error({ err, job: job.name }, 'Failed to log job failure'); });
       }
     },
     {

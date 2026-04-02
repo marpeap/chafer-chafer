@@ -65,10 +65,13 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
   switch (action) {
     // ── Almanax ──
     case 'almanax_today':
+      if (!(await checkModuleEnabled(interaction, 'D-almanax'))) return;
       return handleAlmanaxToday(interaction);
     case 'almanax_semaine':
+      if (!(await checkModuleEnabled(interaction, 'D-almanax'))) return;
       return handleAlmanaxSemaine(interaction);
     case 'almanax_bonus':
+      if (!(await checkModuleEnabled(interaction, 'D-almanax'))) return;
       return interaction.showModal(buildSearchBonusModal());
 
     // ── Activities ──
@@ -173,68 +176,88 @@ async function handleAlmanaxSemaine(interaction: ButtonInteraction): Promise<voi
 
 async function handleSortieListe(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
-  const guildId = interaction.guildId!;
-  const activities = await db().activity.findMany({
-    where: { guildId, status: 'published', scheduledAt: { gte: new Date() } },
-    orderBy: { scheduledAt: 'asc' },
-    take: 15,
-    include: { signups: true },
-  });
-  const embed = buildActivityListEmbed(activities);
-  await interaction.editReply({ embeds: [embed] });
+  try {
+    const guildId = interaction.guildId!;
+    const activities = await db().activity.findMany({
+      where: { guildId, status: 'published', scheduledAt: { gte: new Date() } },
+      orderBy: { scheduledAt: 'asc' },
+      take: 15,
+      include: { signups: true },
+    });
+    const embed = buildActivityListEmbed(activities);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleSortieListe error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la récupération des sorties.')] });
+  }
 }
 
 async function handleMetierListe(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
-  const profiles = await db().professionProfile.findMany({
-    where: { guildId: interaction.guildId!, userId: interaction.user.id },
-    orderBy: { profession: 'asc' },
-  });
-  const embed = buildProfessionListEmbed(profiles, interaction.user.displayName);
-  await interaction.editReply({ embeds: [embed] });
+  try {
+    const profiles = await db().professionProfile.findMany({
+      where: { guildId: interaction.guildId!, userId: interaction.user.id },
+      orderBy: { profession: 'asc' },
+    });
+    const embed = buildProfessionListEmbed(profiles, interaction.user.displayName);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleMetierListe error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la récupération de tes métiers.')] });
+  }
 }
 
 async function handleMetierDispo(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
-  const guildId = interaction.guildId!;
-  const userId = interaction.user.id;
+  try {
+    const guildId = interaction.guildId!;
+    const userId = interaction.user.id;
 
-  const current = await db().crafterAvailability.findUnique({
-    where: { guildId_userId: { guildId, userId } },
-  });
+    const current = await db().crafterAvailability.findUnique({
+      where: { guildId_userId: { guildId, userId } },
+    });
 
-  const newAvailable = !(current?.available ?? true);
+    const newAvailable = !(current?.available ?? true);
 
-  await db().crafterAvailability.upsert({
-    where: { guildId_userId: { guildId, userId } },
-    create: { guildId, userId, available: newAvailable },
-    update: { available: newAvailable },
-  });
+    await db().crafterAvailability.upsert({
+      where: { guildId_userId: { guildId, userId } },
+      create: { guildId, userId, available: newAvailable },
+      update: { available: newAvailable },
+    });
 
-  await db().professionProfile.updateMany({
-    where: { guildId, userId },
-    data: { available: newAvailable },
-  });
+    await db().professionProfile.updateMany({
+      where: { guildId, userId },
+      data: { available: newAvailable },
+    });
 
-  const status = newAvailable ? 'disponible' : 'indisponible';
-  await interaction.editReply({
-    embeds: [successEmbed(`Tu es maintenant marqué comme **${status}** pour tes métiers.`)],
-  });
+    const status = newAvailable ? 'disponible' : 'indisponible';
+    await interaction.editReply({
+      embeds: [successEmbed(`Tu es maintenant marqué comme **${status}** pour tes métiers.`)],
+    });
+  } catch (err) {
+    log.error({ err }, 'handleMetierDispo error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors du changement de disponibilité.')] });
+  }
 }
 
 async function handleRecompenseListe(interaction: ButtonInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
-  const rewards = await db().reward.findMany({
-    where: {
-      recipientId: interaction.user.id,
-      guildId: interaction.guildId!,
-      status: { in: ['pending', 'claimable', 'claimed'] },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 20,
-  });
-  const embed = buildRewardListEmbed(rewards);
-  await interaction.editReply({ embeds: [embed] });
+  try {
+    const rewards = await db().reward.findMany({
+      where: {
+        recipientId: interaction.user.id,
+        guildId: interaction.guildId!,
+        status: { in: ['pending', 'claimable', 'claimed'] },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    const embed = buildRewardListEmbed(rewards);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleRecompenseListe error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la récupération des récompenses.')] });
+  }
 }
 
 // ══════════════════════════════════
@@ -242,6 +265,16 @@ async function handleRecompenseListe(interaction: ButtonInteraction): Promise<vo
 // ══════════════════════════════════
 
 async function showSortieModal(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
+      ephemeral: true,
+    });
+    return;
+  }
+
   const modal = new ModalBuilder()
     .setCustomId('sortie_creer')
     .setTitle('Créer une sortie')
@@ -534,25 +567,40 @@ async function requireAdmin(interaction: ButtonInteraction): Promise<boolean> {
 
 async function handleConfigSalons(interaction: ButtonInteraction): Promise<void> {
   if (!(await requireAdmin(interaction))) return;
-  const embed = buildChannelSelectEmbed();
-  const rows = buildChannelSelectRows();
-  await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  try {
+    const embed = buildChannelSelectEmbed();
+    const rows = buildChannelSelectRows();
+    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  } catch (err) {
+    log.error({ err }, 'handleConfigSalons error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors du chargement de la configuration des salons.')], ephemeral: true }).catch(() => {});
+  }
 }
 
 async function handleConfigRoles(interaction: ButtonInteraction): Promise<void> {
   if (!(await requireAdmin(interaction))) return;
-  const embed = buildRoleSelectEmbed();
-  const rows = buildRoleSelectRows();
-  await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  try {
+    const embed = buildRoleSelectEmbed();
+    const rows = buildRoleSelectRows();
+    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  } catch (err) {
+    log.error({ err }, 'handleConfigRoles error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors du chargement de la configuration des rôles.')], ephemeral: true }).catch(() => {});
+  }
 }
 
 async function handleConfigFlags(interaction: ButtonInteraction): Promise<void> {
   if (!(await requireAdmin(interaction))) return;
-  const guildId = interaction.guildId!;
-  const flags = await getAllFlags(guildId);
-  const embed = buildFlagsEmbed(flags);
-  const rows = buildFlagsSelectRow(flags);
-  await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  try {
+    const guildId = interaction.guildId!;
+    const flags = await getAllFlags(guildId);
+    const embed = buildFlagsEmbed(flags);
+    const rows = buildFlagsSelectRow(flags);
+    await interaction.reply({ embeds: [embed], components: rows, ephemeral: true });
+  } catch (err) {
+    log.error({ err }, 'handleConfigFlags error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors du chargement des feature flags.')], ephemeral: true }).catch(() => {});
+  }
 }
 
 async function handleOfficerPanel(interaction: ButtonInteraction): Promise<void> {
@@ -594,6 +642,16 @@ const ROLE_DB_MAP: Record<string, string> = {
 };
 
 export async function handlePanelChannelSelect(interaction: ChannelSelectMenuInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.ADMIN, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.ADMIN))],
+      ephemeral: true,
+    });
+    return;
+  }
+
   const parts = interaction.customId.split(':');
   const channelType = parts[2]; // panel:select_channel:sorties
   const dbField = CHANNEL_DB_MAP[channelType];
@@ -623,6 +681,16 @@ export async function handlePanelChannelSelect(interaction: ChannelSelectMenuInt
 }
 
 export async function handlePanelRoleSelect(interaction: RoleSelectMenuInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.ADMIN, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.ADMIN))],
+      ephemeral: true,
+    });
+    return;
+  }
+
   const parts = interaction.customId.split(':');
   const roleType = parts[2]; // panel:select_role:admin
   const dbField = ROLE_DB_MAP[roleType];
@@ -652,6 +720,16 @@ export async function handlePanelRoleSelect(interaction: RoleSelectMenuInteracti
 }
 
 export async function handlePanelFlagToggle(interaction: StringSelectMenuInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.ADMIN, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.ADMIN))],
+      ephemeral: true,
+    });
+    return;
+  }
+
   const guildId = interaction.guildId!;
   const flag = interaction.values[0];
   if (!flag) return;

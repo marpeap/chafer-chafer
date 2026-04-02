@@ -29,7 +29,7 @@ export async function handleRewardButton(interaction: ButtonInteraction): Promis
 // ────────────────── reward:claim:<id> ──────────────────
 
 async function handleClaim(interaction: ButtonInteraction, rewardId: number): Promise<void> {
-  const reward = await db().reward.findUnique({ where: { id: rewardId } });
+  const reward = await db().reward.findFirst({ where: { id: rewardId, guildId: interaction.guildId! } });
 
   if (!reward) {
     await interaction.reply({ embeds: [errorEmbed('Recompense introuvable.')], ephemeral: true });
@@ -104,7 +104,7 @@ async function handleClaim(interaction: ButtonInteraction, rewardId: number): Pr
 // ────────────────── reward:dispute:<id> ──────────────────
 
 async function handleDispute(interaction: ButtonInteraction, rewardId: number): Promise<void> {
-  const reward = await db().reward.findUnique({ where: { id: rewardId } });
+  const reward = await db().reward.findFirst({ where: { id: rewardId, guildId: interaction.guildId! } });
 
   if (!reward) {
     await interaction.reply({ embeds: [errorEmbed('Recompense introuvable.')], ephemeral: true });

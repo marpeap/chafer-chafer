@@ -34,7 +34,14 @@ export async function audit(entry: AuditEntry): Promise<void> {
     });
 
     if (guild?.logChannelId) {
-      const channel = discordClient().channels.cache.get(guild.logChannelId);
+      let channel = discordClient().channels.cache.get(guild.logChannelId);
+      if (!channel) {
+        try {
+          channel = await discordClient().channels.fetch(guild.logChannelId) ?? undefined;
+        } catch (err) {
+          log.warn({ err, channelId: guild.logChannelId }, 'Failed to fetch audit log channel');
+        }
+      }
       if (channel && channel instanceof TextChannel) {
         const embed = new EmbedBuilder()
           .setColor(Colors.INFO)

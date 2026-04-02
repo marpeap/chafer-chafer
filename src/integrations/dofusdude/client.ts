@@ -21,11 +21,20 @@ async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
         headers: { 'Accept': 'application/json' },
       });
 
+      if (res.status === 404) {
+        throw new Error(`Not found: ${path}`);
+      }
       if (!res.ok) {
         throw new Error(`DofusDude API ${res.status}: ${path}`);
       }
 
-      return (await res.json()) as T;
+      let data: T;
+      try {
+        data = (await res.json()) as T;
+      } catch (parseErr) {
+        throw new Error(`API JSON parse error: ${path}`);
+      }
+      return data;
     } finally {
       clearTimeout(timer);
     }

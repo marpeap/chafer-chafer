@@ -54,7 +54,17 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
   }
 
   const [, day, month, year, hour, minute] = dateMatch;
-  const scheduledAt = new Date(`${year}-${month}-${day}T${hour}:${minute}:00+02:00`);
+  // Determine the correct Europe/Paris offset (CET +01:00 or CEST +02:00) for this date
+  const targetStr = `${year}-${month}-${day}T${hour}:${minute}:00`;
+  let scheduledAt: Date = new Date(targetStr + '+01:00'); // fallback: CET
+  for (const offset of ['+01:00', '+02:00']) {
+    const candidate = new Date(targetStr + offset);
+    const check = candidate.toLocaleString('sv-SE', { timeZone: 'Europe/Paris' }).replace(' ', 'T');
+    if (check.startsWith(targetStr.slice(0, 16))) {
+      scheduledAt = candidate;
+      break;
+    }
+  }
   if (isNaN(scheduledAt.getTime())) {
     await interaction.editReply({
       embeds: [errorEmbed('Date invalide. Vérifiez le format : JJ/MM/AAAA HH:MM')],

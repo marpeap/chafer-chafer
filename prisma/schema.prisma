@@ -87,6 +87,7 @@ model DiscordMessageMap {
   entityId   Int      @map("entity_id")
   createdAt  DateTime @default(now()) @map("created_at")
 
+  @@index([entityType, entityId])
   @@map("discord_messages_map")
 }
 
@@ -111,6 +112,8 @@ model AuditLog {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@index([guildId, createdAt])
+  @@index([actorId])
+  @@index([targetType, targetId])
   @@map("audit_log")
 }
 
@@ -194,6 +197,7 @@ model ActivityReminder {
 
   activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
 
+  @@unique([activityId, type])
   @@index([sent, remindAt])
   @@map("activity_reminders")
 }
@@ -261,6 +265,7 @@ model ProfessionProfile {
 
   @@unique([guildId, userId, profession])
   @@index([guildId, profession])
+  @@index([guildId, available, level])
   @@map("profession_profiles")
 }
 

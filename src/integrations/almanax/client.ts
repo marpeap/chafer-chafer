@@ -20,11 +20,20 @@ async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
         headers: { 'Accept': 'application/json' },
       });
 
+      if (res.status === 404) {
+        throw new Error(`Not found: ${path}`);
+      }
       if (!res.ok) {
         throw new Error(`Almanax API ${res.status}: ${path}`);
       }
 
-      return (await res.json()) as T;
+      let data: T;
+      try {
+        data = (await res.json()) as T;
+      } catch (parseErr) {
+        throw new Error(`API JSON parse error: ${path}`);
+      }
+      return data;
     } finally {
       clearTimeout(timer);
     }
@@ -62,7 +71,7 @@ export interface AlmanaxBonus {
 // ══════════════════════════════════════════
 
 function dateStr(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return date.toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); // YYYY-MM-DD
 }
 
 export async function getToday(): Promise<{ data: AlmanaxEntry; stale: boolean }> {

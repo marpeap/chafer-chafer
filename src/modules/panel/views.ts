@@ -221,7 +221,30 @@ export function buildChannelSelectRows(): ActionRowBuilder<ChannelSelectMenuBuil
       .setMaxValues(1),
   );
 
+  // Discord limits messages to 5 action rows, so officiers + annonces are on page 2
   return [row1, row2, row3, row4, row5];
+}
+
+export function buildChannelSelectRowsPage2(): ActionRowBuilder<ChannelSelectMenuBuilder | ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:officiers')
+      .setPlaceholder('Salon officiers')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row2 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:annonces')
+      .setPlaceholder('Salon annonces')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  return [row1, row2];
 }
 
 // ── Role select menus ──

@@ -26,6 +26,8 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
   const guildId = interaction.guildId;
   if (!guildId) return;
 
+  await interaction.deferReply();
+
   const recipientRaw = interaction.fields.getTextInputValue('recipient').trim();
   const title = interaction.fields.getTextInputValue('title').trim();
   const amount = interaction.fields.getTextInputValue('amount').trim() || null;
@@ -34,9 +36,8 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
   // Parse recipient
   const recipientId = parseUserId(recipientRaw);
   if (!recipientId) {
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [errorEmbed('Destinataire invalide. Utilise une mention (@pseudo) ou un ID Discord.')],
-      ephemeral: true,
     });
     return;
   }
@@ -45,14 +46,11 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
   try {
     await interaction.guild?.members.fetch(recipientId);
   } catch {
-    await interaction.reply({
+    await interaction.editReply({
       embeds: [errorEmbed('Ce membre est introuvable sur ce serveur.')],
-      ephemeral: true,
     });
     return;
   }
-
-  await interaction.deferReply();
 
   try {
     // Create reward in DB
