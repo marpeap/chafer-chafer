@@ -1,0 +1,27 @@
+[Unit]
+Description=Chafer Chafer - Bot Discord DOFUS
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/chafer-chafer
+ExecStart=/usr/bin/node dist/index.js
+EnvironmentFile=/home/ubuntu/secrets/.env
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=chafer-chafer
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/ubuntu/chafer-chafer
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
