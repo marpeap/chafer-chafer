@@ -1,6 +1,6 @@
 import type { EmbedBuilder } from 'discord.js';
 import { baseEmbed, Colors, Emoji, truncate } from '../../views/base.js';
-import type { DofusDudeItem, DofusDudeSearchResult, DofusDudeMount } from '../../integrations/dofusdude/client.js';
+import type { DofusDudeItem, DofusDudeSearchResult, DofusDudeMount, DofusDudeSet } from '../../integrations/dofusdude/client.js';
 
 const DOFUSDUDE_BASE = 'https://www.dofusdu.de/fr';
 
@@ -9,7 +9,7 @@ function formatEffect(effect: { int_minimum: number; int_maximum: number; type: 
   if (min === max || max === 0) {
     return `**${min}** ${type.name}`;
   }
-  return `**${min}** a **${max}** ${type.name}`;
+  return `**${min}** à **${max}** ${type.name}`;
 }
 
 export function buildItemEmbed(item: DofusDudeItem, stale: boolean): EmbedBuilder {
@@ -42,6 +42,15 @@ export function buildItemEmbed(item: DofusDudeItem, stale: boolean): EmbedBuilde
     });
   }
 
+  // Recipe
+  if (item.recipe && item.recipe.length > 0) {
+    const lines = item.recipe.map(r => `${r.quantity}x #${r.item_ankama_id} *(${r.item_subtype})*`);
+    embed.addFields({
+      name: `${Emoji.HAMMER} Recette`,
+      value: truncate(lines.join('\n'), 1024),
+    });
+  }
+
   // Description
   if (item.description) {
     embed.addFields({
@@ -62,7 +71,7 @@ export function buildItemEmbed(item: DofusDudeItem, stale: boolean): EmbedBuilde
   // Stale warning
   if (stale) {
     embed.setFooter({
-      text: 'Chafer Chafer | Donnees en cache (API indisponible)',
+      text: 'Chafer Chafer | Données en cache (API indisponible)',
     });
   }
 
@@ -98,7 +107,49 @@ export function buildMountEmbed(mount: DofusDudeMount, stale: boolean): EmbedBui
 
   if (stale) {
     embed.setFooter({
-      text: 'Chafer Chafer | Donnees en cache (API indisponible)',
+      text: 'Chafer Chafer | Données en cache (API indisponible)',
+    });
+  }
+
+  return embed;
+}
+
+export function buildSetEmbed(set: DofusDudeSet, stale: boolean): EmbedBuilder {
+  const title = `${Emoji.BOOK} ${set.name}`;
+  const embed = baseEmbed(title, Colors.PRIMARY);
+
+  const metaParts: string[] = [];
+  if (set.highest_equipment_level) {
+    metaParts.push(`**Niveau max :** ${set.highest_equipment_level}`);
+  }
+  if (set.items && set.items.length > 0) {
+    metaParts.push(`**Pièces :** ${set.items.length}`);
+  }
+  if (metaParts.length > 0) {
+    embed.setDescription(metaParts.join(' | '));
+  }
+
+  // Set bonus effects by number of items equipped
+  if (set.effects) {
+    const entries = Object.entries(set.effects)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b));
+    for (const [count, effects] of entries) {
+      if (effects.length > 0) {
+        const lines = effects.map(formatEffect);
+        embed.addFields({
+          name: `${count} pièce${parseInt(count) > 1 ? 's' : ''} équipée${parseInt(count) > 1 ? 's' : ''}`,
+          value: truncate(lines.join('\n'), 1024),
+          inline: true,
+        });
+      }
+    }
+  }
+
+  embed.setURL(`${DOFUSDUDE_BASE}/sets/${set.ankama_id}`);
+
+  if (stale) {
+    embed.setFooter({
+      text: 'Chafer Chafer | Données en cache (API indisponible)',
     });
   }
 
@@ -106,10 +157,10 @@ export function buildMountEmbed(mount: DofusDudeMount, stale: boolean): EmbedBui
 }
 
 export function buildSearchResultsEmbed(results: DofusDudeSearchResult[], query: string): EmbedBuilder {
-  const embed = baseEmbed(`${Emoji.SEARCH} Resultats pour "${query}"`, Colors.INFO);
+  const embed = baseEmbed(`${Emoji.SEARCH} Résultats pour « ${query} »`, Colors.INFO);
 
   if (results.length === 0) {
-    embed.setDescription('Aucun resultat trouve.');
+    embed.setDescription('Aucun résultat trouvé.');
     return embed;
   }
 

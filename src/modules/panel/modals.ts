@@ -37,7 +37,7 @@ async function handleDofusChercher(interaction: ModalSubmitInteraction): Promise
   }
 
   try {
-    const { data: results, stale } = await dofusdude.searchItems(query, 8);
+    const { data: results, stale } = await dofusdude.searchGlobal(query, 8);
 
     if (!results || results.length === 0) {
       await interaction.editReply({

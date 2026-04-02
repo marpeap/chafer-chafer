@@ -102,6 +102,26 @@ const commands = [
       sub.setName('monture')
         .setDescription('Rechercher une monture')
         .addStringOption(o => o.setName('query').setDescription('Nom').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('consommable')
+        .setDescription('Rechercher un consommable')
+        .addStringOption(o => o.setName('query').setDescription('Nom').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('quete')
+        .setDescription('Rechercher un objet de quête')
+        .addStringOption(o => o.setName('query').setDescription('Nom').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('cosmetique')
+        .setDescription('Rechercher un cosmétique')
+        .addStringOption(o => o.setName('query').setDescription('Nom').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('panoplie')
+        .setDescription('Rechercher une panoplie')
+        .addStringOption(o => o.setName('query').setDescription('Nom').setRequired(true).setAutocomplete(true))
     ),
 
   // /sortie

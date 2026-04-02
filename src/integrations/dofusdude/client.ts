@@ -1,9 +1,13 @@
-import { CircuitBreaker, CircuitOpenError } from '../../core/circuit-breaker.js';
-import { cacheGetOrFetchWithStale } from '../../core/cache.js';
+import { CircuitBreaker } from '../../core/circuit-breaker.js';
+import { cacheGetOrFetchWithStale, cacheGetOrFetch } from '../../core/cache.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('dofusdude');
 const BASE_URL = 'https://api.dofusdu.de';
+const GAME = 'dofus3';
+const LANG = 'fr';
+const PREFIX = `/${GAME}/v1/${LANG}`;
+
 const breaker = new CircuitBreaker({ name: 'dofusdude', failureThreshold: 3, resetTimeoutMs: 60_000 });
 
 async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
@@ -28,11 +32,14 @@ async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
   });
 }
 
-// Types for DofusDude responses
+// ══════════════════════════════════════════
+//  TYPES
+// ══════════════════════════════════════════
+
 export interface DofusDudeItem {
   ankama_id: number;
   name: string;
-  type?: { name: string };
+  type?: { name: string; id?: number };
   level?: number;
   image_urls?: { icon?: string; sd?: string };
   description?: string;
@@ -62,109 +69,259 @@ export interface DofusDudeSet {
   ankama_id: number;
   name: string;
   items?: number[];
+  highest_equipment_level?: number;
   effects?: Record<string, Array<{ int_minimum: number; int_maximum: number; type: { name: string } }>>;
 }
 
-// Search items across all categories
+export interface DofusDudeSetSearchResult {
+  ankama_id: number;
+  name: string;
+  highest_equipment_level?: number;
+}
+
+export interface GameVersion {
+  version: string;
+  release: string;
+  update_stamp: string;
+}
+
+export interface ItemType {
+  id: number;
+  name: string;
+}
+
+// ══════════════════════════════════════════
+//  GLOBAL SEARCH (cross-type)
+// ══════════════════════════════════════════
+
+export async function searchGlobal(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:search:global:${query.toLowerCase()}`,
+    3600,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<DofusDudeSearchResult[]>(
+        `${PREFIX}/search?query=${encoded}&limit=${limit}`,
+      );
+    },
+  );
+}
+
+// ══════════════════════════════════════════
+//  ITEMS — Search
+// ══════════════════════════════════════════
+
 export async function searchItems(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dofusdude:search:${query.toLowerCase()}`,
-    3600,    // 1h cache
-    86400,   // 24h stale
+    `dd:search:items:${query.toLowerCase()}`,
+    3600,
+    86400,
     async () => {
       const encoded = encodeURIComponent(query);
-      const results = await fetchApi<DofusDudeSearchResult[]>(
-        `/dofus2/fr/items/search?query=${encoded}&limit=${limit}`,
+      return fetchApi<DofusDudeSearchResult[]>(
+        `${PREFIX}/items/search?query=${encoded}&limit=${limit}`,
       );
-      return results;
     },
   );
 }
 
-// Get a specific equipment item by ID
-export async function getEquipment(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
-  return cacheGetOrFetchWithStale(
-    `dofusdude:equip:${id}`,
-    86400,   // 24h cache
-    604800,  // 7d stale
-    async () => fetchApi<DofusDudeItem>(`/dofus2/fr/items/equipment/${id}`),
-  );
-}
-
-// Get a specific resource item by ID
-export async function getResource(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
-  return cacheGetOrFetchWithStale(
-    `dofusdude:resource:${id}`,
-    86400,
-    604800,
-    async () => fetchApi<DofusDudeItem>(`/dofus2/fr/items/resources/${id}`),
-  );
-}
-
-// Get a specific consumable by ID
-export async function getConsumable(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
-  return cacheGetOrFetchWithStale(
-    `dofusdude:consumable:${id}`,
-    86400,
-    604800,
-    async () => fetchApi<DofusDudeItem>(`/dofus2/fr/items/consumables/${id}`),
-  );
-}
-
-// Search equipment
 export async function searchEquipment(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dofusdude:search:equip:${query.toLowerCase()}`,
+    `dd:search:equip:${query.toLowerCase()}`,
     3600,
     86400,
     async () => {
       const encoded = encodeURIComponent(query);
       return fetchApi<DofusDudeSearchResult[]>(
-        `/dofus2/fr/items/equipment/search?query=${encoded}&limit=${limit}`,
+        `${PREFIX}/items/equipment/search?query=${encoded}&limit=${limit}`,
       );
     },
   );
 }
 
-// Search resources
 export async function searchResources(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dofusdude:search:resource:${query.toLowerCase()}`,
+    `dd:search:resource:${query.toLowerCase()}`,
     3600,
     86400,
     async () => {
       const encoded = encodeURIComponent(query);
       return fetchApi<DofusDudeSearchResult[]>(
-        `/dofus2/fr/items/resources/search?query=${encoded}&limit=${limit}`,
+        `${PREFIX}/items/resources/search?query=${encoded}&limit=${limit}`,
       );
     },
   );
 }
 
-// Search mounts
+export async function searchConsumables(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:search:consumable:${query.toLowerCase()}`,
+    3600,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<DofusDudeSearchResult[]>(
+        `${PREFIX}/items/consumables/search?query=${encoded}&limit=${limit}`,
+      );
+    },
+  );
+}
+
+export async function searchQuestItems(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:search:quest:${query.toLowerCase()}`,
+    3600,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<DofusDudeSearchResult[]>(
+        `${PREFIX}/items/quest/search?query=${encoded}&limit=${limit}`,
+      );
+    },
+  );
+}
+
+export async function searchCosmetics(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:search:cosmetic:${query.toLowerCase()}`,
+    3600,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<DofusDudeSearchResult[]>(
+        `${PREFIX}/items/cosmetics/search?query=${encoded}&limit=${limit}`,
+      );
+    },
+  );
+}
+
+// ══════════════════════════════════════════
+//  ITEMS — Get by ID
+// ══════════════════════════════════════════
+
+export async function getEquipment(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:equip:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeItem>(`${PREFIX}/items/equipment/${id}`),
+  );
+}
+
+export async function getResource(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:resource:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeItem>(`${PREFIX}/items/resources/${id}`),
+  );
+}
+
+export async function getConsumable(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:consumable:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeItem>(`${PREFIX}/items/consumables/${id}`),
+  );
+}
+
+export async function getQuestItem(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:quest:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeItem>(`${PREFIX}/items/quest/${id}`),
+  );
+}
+
+export async function getCosmetic(id: number): Promise<{ data: DofusDudeItem; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:cosmetic:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeItem>(`${PREFIX}/items/cosmetics/${id}`),
+  );
+}
+
+// ══════════════════════════════════════════
+//  MOUNTS
+// ══════════════════════════════════════════
+
 export async function searchMounts(query: string, limit = 8): Promise<{ data: DofusDudeMount[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dofusdude:search:mount:${query.toLowerCase()}`,
+    `dd:search:mount:${query.toLowerCase()}`,
     3600,
     86400,
     async () => {
       const encoded = encodeURIComponent(query);
       return fetchApi<DofusDudeMount[]>(
-        `/dofus2/fr/mounts/search?query=${encoded}&limit=${limit}`,
+        `${PREFIX}/mounts/search?query=${encoded}&limit=${limit}`,
       );
     },
   );
 }
 
-// Get a set by ID
-export async function getSet(id: number): Promise<{ data: DofusDudeSet; stale: boolean }> {
+export async function getMount(id: number): Promise<{ data: DofusDudeMount; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dofusdude:set:${id}`,
+    `dd:mount:${id}`,
     86400,
     604800,
-    async () => fetchApi<DofusDudeSet>(`/dofus2/fr/items/equipment/sets/${id}`),
+    async () => fetchApi<DofusDudeMount>(`${PREFIX}/mounts/${id}`),
   );
 }
+
+// ══════════════════════════════════════════
+//  SETS (Panoplies)
+// ══════════════════════════════════════════
+
+export async function searchSets(query: string, limit = 8): Promise<{ data: DofusDudeSetSearchResult[]; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:search:set:${query.toLowerCase()}`,
+    3600,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<DofusDudeSetSearchResult[]>(
+        `${PREFIX}/sets/search?query=${encoded}&limit=${limit}`,
+      );
+    },
+  );
+}
+
+export async function getSet(id: number): Promise<{ data: DofusDudeSet; stale: boolean }> {
+  return cacheGetOrFetchWithStale(
+    `dd:set:${id}`,
+    86400,
+    604800,
+    async () => fetchApi<DofusDudeSet>(`${PREFIX}/sets/${id}`),
+  );
+}
+
+// ══════════════════════════════════════════
+//  META
+// ══════════════════════════════════════════
+
+export async function getGameVersion(): Promise<GameVersion> {
+  return cacheGetOrFetch(
+    `dd:meta:version`,
+    3600,
+    async () => fetchApi<GameVersion>(`/${GAME}/v1/meta/version`),
+  );
+}
+
+export async function getItemTypes(): Promise<ItemType[]> {
+  return cacheGetOrFetch(
+    `dd:meta:item_types`,
+    86400,
+    async () => fetchApi<ItemType[]>(`/${GAME}/v1/meta/items/types`),
+  );
+}
+
+// ══════════════════════════════════════════
+//  STATUS
+// ══════════════════════════════════════════
 
 export function isCircuitOpen(): boolean {
   return breaker.getState() === 'OPEN';

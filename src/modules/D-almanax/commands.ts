@@ -1,25 +1,10 @@
 import { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
-import { getToday, getDate, getRange, getNextBonus } from '../../integrations/almanax/client.js';
+import { getToday, getDate, getRange, getNextBonus, searchBonusTypes } from '../../integrations/almanax/client.js';
 import { buildAlmanaxEmbed, buildAlmanaxWeekEmbed } from './views.js';
 import { errorEmbed } from '../../views/base.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('almanax:cmd');
-
-/** Common Dofus bonus types for autocomplete */
-const BONUS_TYPES = [
-  'Prospection',
-  'Sagesse',
-  'Force',
-  'Chance',
-  'Intelligence',
-  'Agilité',
-  'Vitalité',
-  'Pods',
-  'Étoiles',
-  'Butin',
-  'Expérience',
-];
 
 export async function handleAlmanax(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand(false);
@@ -41,13 +26,24 @@ export async function handleAlmanaxAutocomplete(interaction: AutocompleteInterac
   const focused = interaction.options.getFocused(true);
 
   if (focused.name === 'type') {
-    const query = focused.value.toLowerCase();
-    const filtered = BONUS_TYPES
-      .filter((t) => t.toLowerCase().includes(query))
-      .slice(0, 25)
-      .map((t) => ({ name: t, value: t }));
+    const query = focused.value.trim();
 
-    await interaction.respond(filtered);
+    if (!query || query.length < 2) {
+      await interaction.respond([]);
+      return;
+    }
+
+    try {
+      const results = await searchBonusTypes(query);
+      const choices = results.slice(0, 25).map((b) => ({
+        name: b.name.length > 100 ? b.name.slice(0, 99) + '\u2026' : b.name,
+        value: b.id,
+      }));
+      await interaction.respond(choices);
+    } catch (err) {
+      log.warn({ err, query }, 'Almanax bonus autocomplete failed');
+      await interaction.respond([]);
+    }
   } else {
     await interaction.respond([]);
   }

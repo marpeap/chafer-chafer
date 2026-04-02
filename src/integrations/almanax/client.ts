@@ -1,9 +1,12 @@
 import { CircuitBreaker } from '../../core/circuit-breaker.js';
-import { cacheGetOrFetchWithStale } from '../../core/cache.js';
+import { cacheGetOrFetchWithStale, cacheGetOrFetch } from '../../core/cache.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('almanax');
-const BASE_URL = 'https://alm.dofusdu.de';
+const BASE_URL = 'https://api.dofusdu.de';
+const LANG = 'fr';
+const PREFIX = `/dofus3/v1/${LANG}`;
+
 const breaker = new CircuitBreaker({ name: 'almanax', failureThreshold: 3, resetTimeoutMs: 60_000 });
 
 async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
@@ -28,6 +31,10 @@ async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
   });
 }
 
+// ══════════════════════════════════════════
+//  TYPES
+// ══════════════════════════════════════════
+
 export interface AlmanaxEntry {
   date: string;
   bonus: {
@@ -45,6 +52,15 @@ export interface AlmanaxEntry {
   };
 }
 
+export interface AlmanaxBonus {
+  id: string;
+  name: string;
+}
+
+// ══════════════════════════════════════════
+//  ALMANAX — Single day
+// ══════════════════════════════════════════
+
 function dateStr(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -52,65 +68,102 @@ function dateStr(date: Date): string {
 export async function getToday(): Promise<{ data: AlmanaxEntry; stale: boolean }> {
   const today = dateStr(new Date());
   return cacheGetOrFetchWithStale(
-    `almanax:day:${today}`,
-    3600 * 6,  // 6h cache
-    86400,     // 24h stale
-    async () => fetchApi<AlmanaxEntry>(`/dofus2/fr/${today}`),
+    `alm:day:${today}`,
+    3600 * 6,
+    86400,
+    async () => fetchApi<AlmanaxEntry>(`${PREFIX}/almanax/${today}`),
   );
 }
 
 export async function getDate(date: Date): Promise<{ data: AlmanaxEntry; stale: boolean }> {
   const ds = dateStr(date);
   return cacheGetOrFetchWithStale(
-    `almanax:day:${ds}`,
+    `alm:day:${ds}`,
     86400,
     604800,
-    async () => fetchApi<AlmanaxEntry>(`/dofus2/fr/${ds}`),
+    async () => fetchApi<AlmanaxEntry>(`${PREFIX}/almanax/${ds}`),
   );
 }
+
+// ══════════════════════════════════════════
+//  ALMANAX — Range (uses native range endpoint)
+// ══════════════════════════════════════════
 
 export async function getRange(from: Date, to: Date): Promise<{ data: AlmanaxEntry[]; stale: boolean }> {
   const fromStr = dateStr(from);
   const toStr = dateStr(to);
   return cacheGetOrFetchWithStale(
-    `almanax:range:${fromStr}:${toStr}`,
+    `alm:range:${fromStr}:${toStr}`,
     3600 * 6,
     86400,
     async () => {
-      // Fetch day by day (API doesn't have range endpoint in all versions)
-      const entries: AlmanaxEntry[] = [];
-      const current = new Date(from);
-      while (current <= to) {
-        const entry = await fetchApi<AlmanaxEntry>(`/dofus2/fr/${dateStr(current)}`);
-        entries.push(entry);
-        current.setDate(current.getDate() + 1);
-      }
-      return entries;
+      const params = new URLSearchParams({
+        'range[from]': fromStr,
+        'range[to]': toStr,
+        timezone: 'Europe/Paris',
+      });
+      return fetchApi<AlmanaxEntry[]>(`${PREFIX}/almanax?${params}`);
     },
   );
 }
 
+// ══════════════════════════════════════════
+//  ALMANAX — Search by bonus type (single API call)
+// ══════════════════════════════════════════
+
 export async function getNextBonus(bonusType: string, fromDate?: Date): Promise<{ data: AlmanaxEntry | null; stale: boolean }> {
   const from = fromDate ?? new Date();
+  const to = new Date(from);
+  to.setDate(to.getDate() + 60);
+
   return cacheGetOrFetchWithStale(
-    `almanax:nextbonus:${bonusType}:${dateStr(from)}`,
+    `alm:nextbonus:${bonusType.toLowerCase()}:${dateStr(from)}`,
     3600 * 12,
     86400 * 3,
     async () => {
-      // Search next 60 days
-      const current = new Date(from);
-      for (let i = 0; i < 60; i++) {
-        const entry = await fetchApi<AlmanaxEntry>(`/dofus2/fr/${dateStr(current)}`);
-        if (entry.bonus.type.name.toLowerCase().includes(bonusType.toLowerCase())) {
-          return entry;
-        }
-        current.setDate(current.getDate() + 1);
-      }
-      return null;
+      const params = new URLSearchParams({
+        'filter[bonus_type]': bonusType,
+        'range[from]': dateStr(from),
+        'range[to]': dateStr(to),
+        timezone: 'Europe/Paris',
+      });
+      const results = await fetchApi<AlmanaxEntry[]>(`${PREFIX}/almanax?${params}`);
+      return results.length > 0 ? results[0] : null;
     },
   );
 }
+
+// ══════════════════════════════════════════
+//  ALMANAX — Bonus types list (for autocomplete)
+// ══════════════════════════════════════════
+
+export async function getBonusTypes(): Promise<AlmanaxBonus[]> {
+  return cacheGetOrFetch(
+    `alm:meta:bonuses`,
+    86400 * 7,
+    async () => fetchApi<AlmanaxBonus[]>(`/dofus3/v1/meta/${LANG}/almanax/bonuses`),
+  );
+}
+
+export async function searchBonusTypes(query: string): Promise<AlmanaxBonus[]> {
+  return cacheGetOrFetch(
+    `alm:meta:bonuses:search:${query.toLowerCase()}`,
+    86400,
+    async () => {
+      const encoded = encodeURIComponent(query);
+      return fetchApi<AlmanaxBonus[]>(
+        `/dofus3/v1/meta/${LANG}/almanax/bonuses/search?query=${encoded}`,
+      );
+    },
+  );
+}
+
+// ══════════════════════════════════════════
+//  STATUS
+// ══════════════════════════════════════════
 
 export function isCircuitOpen(): boolean {
   return breaker.getState() === 'OPEN';
 }
+
+export { LANG };

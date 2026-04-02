@@ -12,7 +12,7 @@ export async function isEnabled(guildId: string, flag: string): Promise<boolean>
     where: { guildId_flag: { guildId, flag } },
   });
 
-  const enabled = row?.enabled ?? false;
+  const enabled = row?.enabled ?? true;
   await cacheSet(cacheKey, enabled, CACHE_TTL);
   return enabled;
 }
