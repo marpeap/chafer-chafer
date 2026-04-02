@@ -10,11 +10,11 @@ const log = childLogger('F-rewards:modals');
 /** Extract a Discord user ID from a mention string or raw ID */
 function parseUserId(input: string): string | null {
   // Match <@123456> or <@!123456>
-  const mentionMatch = input.match(/^<@!?(\d{17,20})>$/);
+  const mentionMatch = input.match(/^<@!?(\d{17,19})>$/);
   if (mentionMatch) return mentionMatch[1];
 
   // Match raw ID
-  const idMatch = input.match(/^(\d{17,20})$/);
+  const idMatch = input.match(/^(\d{17,19})$/);
   if (idMatch) return idMatch[1];
 
   return null;

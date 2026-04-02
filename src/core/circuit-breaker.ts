@@ -16,17 +16,20 @@ export class CircuitBreaker {
   private failureCount = 0;
   private lastFailureTime = 0;
   private halfOpenCalls = 0;
+  private halfOpenSuccesses = 0;
 
   private readonly name: string;
   private readonly failureThreshold: number;
   private readonly resetTimeoutMs: number;
   private readonly halfOpenMaxCalls: number;
+  private readonly halfOpenSuccessThreshold: number;
 
   constructor(opts: CircuitBreakerOptions) {
     this.name = opts.name;
     this.failureThreshold = opts.failureThreshold ?? 5;
     this.resetTimeoutMs = opts.resetTimeoutMs ?? 30_000;
     this.halfOpenMaxCalls = opts.halfOpenMaxCalls ?? 2;
+    this.halfOpenSuccessThreshold = 2;
   }
 
   async execute<T>(fn: () => Promise<T>): Promise<T> {
@@ -34,6 +37,7 @@ export class CircuitBreaker {
       if (Date.now() - this.lastFailureTime >= this.resetTimeoutMs) {
         this.state = 'HALF_OPEN';
         this.halfOpenCalls = 0;
+        this.halfOpenSuccesses = 0;
         log.info({ breaker: this.name }, 'Circuit breaker HALF_OPEN');
       } else {
         throw new CircuitOpenError(this.name);
@@ -57,15 +61,22 @@ export class CircuitBreaker {
 
   private onSuccess(): void {
     if (this.state === 'HALF_OPEN') {
+      this.halfOpenSuccesses++;
+      if (this.halfOpenSuccesses < this.halfOpenSuccessThreshold) {
+        log.info({ breaker: this.name, successes: this.halfOpenSuccesses }, 'Circuit breaker HALF_OPEN — success, waiting for more');
+        return;
+      }
       log.info({ breaker: this.name }, 'Circuit breaker CLOSED (recovered)');
     }
     this.failureCount = 0;
+    this.halfOpenSuccesses = 0;
     this.state = 'CLOSED';
   }
 
   private onFailure(): void {
     this.failureCount++;
     this.lastFailureTime = Date.now();
+    this.halfOpenSuccesses = 0;
 
     if (this.state === 'HALF_OPEN' || this.failureCount >= this.failureThreshold) {
       this.state = 'OPEN';

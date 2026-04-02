@@ -143,16 +143,8 @@ export async function getNextBonus(bonusType: string, fromDate?: Date): Promise<
 }
 
 // ══════════════════════════════════════════
-//  ALMANAX — Bonus types list (for autocomplete)
+//  ALMANAX — Bonus types search (for autocomplete)
 // ══════════════════════════════════════════
-
-export async function getBonusTypes(): Promise<AlmanaxBonus[]> {
-  return cacheGetOrFetch(
-    `alm:meta:bonuses`,
-    86400 * 7,
-    async () => fetchApi<AlmanaxBonus[]>(`/dofus3/v1/meta/${LANG}/almanax/bonuses`),
-  );
-}
 
 export async function searchBonusTypes(query: string): Promise<AlmanaxBonus[]> {
   return cacheGetOrFetch(
@@ -167,12 +159,3 @@ export async function searchBonusTypes(query: string): Promise<AlmanaxBonus[]> {
   );
 }
 
-// ══════════════════════════════════════════
-//  STATUS
-// ══════════════════════════════════════════
-
-export function isCircuitOpen(): boolean {
-  return breaker.getState() === 'OPEN';
-}
-
-export { LANG };

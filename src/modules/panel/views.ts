@@ -310,7 +310,7 @@ export function buildFlagsSelectRow(flags: Record<string, boolean>): ActionRowBu
       .setDescription(enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer')
       .setValue(flag)
       .setEmoji(enabled ? Emoji.CHECK : Emoji.CROSS),
-  );
+  ).slice(0, 25);
 
   if (options.length === 0) return [];
 

@@ -111,9 +111,9 @@ async function handlePayer(interaction: ChatInputCommandInteraction): Promise<vo
     return;
   }
 
-  if (reward.status !== 'claimed' && reward.status !== 'claimable') {
+  if (reward.status !== 'claimed') {
     await interaction.reply({
-      embeds: [errorEmbed(`Cette recompense ne peut pas etre payee (statut actuel : ${reward.status}).`)],
+      embeds: [errorEmbed(`Cette recompense ne peut pas etre payee (statut actuel : ${reward.status}). Le destinataire doit d'abord la reclamer.`)],
       ephemeral: true,
     });
     return;
@@ -181,7 +181,7 @@ async function handleAnnuler(interaction: ChatInputCommandInteraction): Promise<
     return;
   }
 
-  if (reward.status === 'paid' || reward.status === 'cancelled') {
+  if (reward.status !== 'pending' && reward.status !== 'claimable') {
     await interaction.reply({
       embeds: [errorEmbed(`Cette recompense ne peut pas etre annulee (statut actuel : ${reward.status}).`)],
       ephemeral: true,

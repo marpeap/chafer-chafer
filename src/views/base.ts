@@ -42,7 +42,7 @@ export const Emoji = {
 export function baseEmbed(title: string, color: number = Colors.PRIMARY): EmbedBuilder {
   return new EmbedBuilder()
     .setColor(color)
-    .setTitle(title)
+    .setTitle(truncate(title, 256))
     .setTimestamp()
     .setFooter({ text: 'Chafer Chafer' });
 }

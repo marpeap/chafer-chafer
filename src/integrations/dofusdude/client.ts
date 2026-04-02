@@ -1,5 +1,5 @@
 import { CircuitBreaker } from '../../core/circuit-breaker.js';
-import { cacheGetOrFetchWithStale, cacheGetOrFetch } from '../../core/cache.js';
+import { cacheGetOrFetchWithStale } from '../../core/cache.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('dofusdude');
@@ -88,24 +88,13 @@ export interface DofusDudeSetSearchResult {
   highest_equipment_level?: number;
 }
 
-export interface GameVersion {
-  version: string;
-  release: string;
-  update_stamp: string;
-}
-
-export interface ItemType {
-  id: number;
-  name: string;
-}
-
 // ══════════════════════════════════════════
 //  GLOBAL SEARCH (cross-type)
 // ══════════════════════════════════════════
 
 export async function searchGlobal(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:global:${query.toLowerCase()}`,
+    `dd:search:global:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -121,23 +110,9 @@ export async function searchGlobal(query: string, limit = 8): Promise<{ data: Do
 //  ITEMS — Search
 // ══════════════════════════════════════════
 
-export async function searchItems(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
-  return cacheGetOrFetchWithStale(
-    `dd:search:items:${query.toLowerCase()}`,
-    3600,
-    86400,
-    async () => {
-      const encoded = encodeURIComponent(query);
-      return fetchApi<DofusDudeSearchResult[]>(
-        `${PREFIX}/items/search?query=${encoded}&limit=${limit}`,
-      );
-    },
-  );
-}
-
 export async function searchEquipment(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:equip:${query.toLowerCase()}`,
+    `dd:search:equip:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -151,7 +126,7 @@ export async function searchEquipment(query: string, limit = 8): Promise<{ data:
 
 export async function searchResources(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:resource:${query.toLowerCase()}`,
+    `dd:search:resource:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -165,7 +140,7 @@ export async function searchResources(query: string, limit = 8): Promise<{ data:
 
 export async function searchConsumables(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:consumable:${query.toLowerCase()}`,
+    `dd:search:consumable:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -179,7 +154,7 @@ export async function searchConsumables(query: string, limit = 8): Promise<{ dat
 
 export async function searchQuestItems(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:quest:${query.toLowerCase()}`,
+    `dd:search:quest:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -193,7 +168,7 @@ export async function searchQuestItems(query: string, limit = 8): Promise<{ data
 
 export async function searchCosmetics(query: string, limit = 8): Promise<{ data: DofusDudeSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:cosmetic:${query.toLowerCase()}`,
+    `dd:search:cosmetic:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -260,7 +235,7 @@ export async function getCosmetic(id: number): Promise<{ data: DofusDudeItem; st
 
 export async function searchMounts(query: string, limit = 8): Promise<{ data: DofusDudeMount[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:mount:${query.toLowerCase()}`,
+    `dd:search:mount:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -287,7 +262,7 @@ export async function getMount(id: number): Promise<{ data: DofusDudeMount; stal
 
 export async function searchSets(query: string, limit = 8): Promise<{ data: DofusDudeSetSearchResult[]; stale: boolean }> {
   return cacheGetOrFetchWithStale(
-    `dd:search:set:${query.toLowerCase()}`,
+    `dd:search:set:${query.toLowerCase()}:${limit}`,
     3600,
     86400,
     async () => {
@@ -305,26 +280,6 @@ export async function getSet(id: number): Promise<{ data: DofusDudeSet; stale: b
     86400,
     604800,
     async () => fetchApi<DofusDudeSet>(`${PREFIX}/sets/${id}`),
-  );
-}
-
-// ══════════════════════════════════════════
-//  META
-// ══════════════════════════════════════════
-
-export async function getGameVersion(): Promise<GameVersion> {
-  return cacheGetOrFetch(
-    `dd:meta:version`,
-    3600,
-    async () => fetchApi<GameVersion>(`/${GAME}/v1/meta/version`),
-  );
-}
-
-export async function getItemTypes(): Promise<ItemType[]> {
-  return cacheGetOrFetch(
-    `dd:meta:item_types`,
-    86400,
-    async () => fetchApi<ItemType[]>(`/${GAME}/v1/meta/items/types`),
   );
 }
 
