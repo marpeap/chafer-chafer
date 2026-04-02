@@ -153,6 +153,7 @@ model Activity {
   title           String
   activityType    String   @map("activity_type") // donjon, koli, songe, quete, farm, pvp, perco, autre
   description     String?
+  roleSlots       String?  @map("role_slots") // e.g. "2T,2H,4D" — parsed for role-based signup
   scheduledAt     DateTime @map("scheduled_at")
   estimatedDuration Int?   @map("estimated_duration") // minutes
   maxPlayers      Int?     @map("max_players")
@@ -223,6 +224,7 @@ model QuickCall {
   activityType String  @map("activity_type")
   description String?
   playersNeeded Int    @map("players_needed")
+  minLevel    Int?     @map("min_level")
   expiresAt   DateTime @map("expires_at")
   status      String   @default("open") // open, filled, expired, cancelled
   messageId   String?  @map("message_id")
@@ -276,6 +278,8 @@ model CraftRequest {
   crafterId    String?  @map("crafter_id")
   profession   String
   itemName     String   @map("item_name")
+  itemAnkamaId Int?     @map("item_ankama_id")
+  itemImageUrl String?  @map("item_image_url")
   quantity     Int      @default(1)
   description  String?
   status       String   @default("open") // open, taken, completed, cancelled

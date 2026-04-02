@@ -353,11 +353,20 @@ async function showLfgModal(interaction: ButtonInteraction): Promise<void> {
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
           .setCustomId('duree')
-          .setLabel('Durée en heures (2 à 6)')
-          .setPlaceholder('2')
+          .setLabel('Durée en heures (0.5 à 6)')
+          .setPlaceholder('1 (ou 0.5 pour 30min)')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
-          .setMaxLength(1),
+          .setMaxLength(3),
+      ),
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('niveau')
+          .setLabel('Niveau minimum (optionnel)')
+          .setPlaceholder('Ex: 100')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(false)
+          .setMaxLength(3),
       ),
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()

@@ -12,7 +12,7 @@ function formatEffect(effect: { int_minimum: number; int_maximum: number; type: 
   return `**${min}** à **${max}** ${type.name}`;
 }
 
-export function buildItemEmbed(item: DofusDudeItem, stale: boolean): EmbedBuilder {
+export function buildItemEmbed(item: DofusDudeItem, stale: boolean, recipeNames?: Map<number, string>): EmbedBuilder {
   const typeName = item.type?.name ?? 'Objet';
   const title = `${Emoji.BOOK} ${item.name}`;
   const embed = baseEmbed(title, Colors.PRIMARY);
@@ -44,7 +44,10 @@ export function buildItemEmbed(item: DofusDudeItem, stale: boolean): EmbedBuilde
 
   // Recipe
   if (item.recipe && item.recipe.length > 0) {
-    const lines = item.recipe.map(r => `${r.quantity}x #${r.item_ankama_id} *(${r.item_subtype})*`);
+    const lines = item.recipe.map(r => {
+      const name = recipeNames?.get(r.item_ankama_id) ?? `#${r.item_ankama_id} *(${r.item_subtype})*`;
+      return `${r.quantity}x **${name}**`;
+    });
     embed.addFields({
       name: `${Emoji.HAMMER} Recette`,
       value: truncate(lines.join('\n'), 1024),

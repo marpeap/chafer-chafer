@@ -53,11 +53,11 @@ export async function handleLfg(interaction: ChatInputCommandInteraction): Promi
 
   const dureeInput = new TextInputBuilder()
     .setCustomId('duree')
-    .setLabel('Durée en heures (2-6)')
+    .setLabel('Durée en heures (0.5 à 6)')
     .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: 3')
+    .setPlaceholder('ex: 1 (ou 0.5 pour 30min)')
     .setRequired(true)
-    .setMaxLength(2);
+    .setMaxLength(3);
 
   const commentaireInput = new TextInputBuilder()
     .setCustomId('commentaire')
@@ -67,10 +67,19 @@ export async function handleLfg(interaction: ChatInputCommandInteraction): Promi
     .setRequired(false)
     .setMaxLength(500);
 
+  const niveauInput = new TextInputBuilder()
+    .setCustomId('niveau')
+    .setLabel('Niveau minimum (optionnel)')
+    .setStyle(TextInputStyle.Short)
+    .setPlaceholder('Ex: 100')
+    .setRequired(false)
+    .setMaxLength(3);
+
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(activiteInput),
     new ActionRowBuilder<TextInputBuilder>().addComponents(joueursInput),
     new ActionRowBuilder<TextInputBuilder>().addComponents(dureeInput),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(niveauInput),
     new ActionRowBuilder<TextInputBuilder>().addComponents(commentaireInput),
   );
 
@@ -118,9 +127,9 @@ async function handleSortieCreer(interaction: ChatInputCommandInteraction): Prom
 
   const descriptionInput = new TextInputBuilder()
     .setCustomId('description')
-    .setLabel('Description (optionnel)')
+    .setLabel('Description / Rôles (optionnel)')
     .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Détails de la sortie...')
+    .setPlaceholder('Ex: 2 Tank, 2 Heal, 4 DPS\nDétails de la sortie...')
     .setRequired(false)
     .setMaxLength(1000);
 

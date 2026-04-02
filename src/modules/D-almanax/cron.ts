@@ -2,8 +2,8 @@ import { TextChannel } from 'discord.js';
 import { registerJob } from '../../core/scheduler.js';
 import { db } from '../../core/database.js';
 import { discordClient } from '../../core/client.js';
-import { getToday } from '../../integrations/almanax/client.js';
-import { buildAlmanaxEmbed } from './views.js';
+import { getToday, getDate } from '../../integrations/almanax/client.js';
+import { buildAlmanaxEmbed, buildAlmanaxTomorrowPreview } from './views.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('almanax:cron');
@@ -15,7 +15,20 @@ export function registerAlmanaxCron(): void {
     timezone: 'Europe/Paris',
     handler: async () => {
       const { data, stale } = await getToday();
-      const embed = buildAlmanaxEmbed(data, stale);
+      const todayEmbed = buildAlmanaxEmbed(data, stale);
+
+      // Fetch tomorrow's almanax for preview
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      let tomorrowEmbed;
+      try {
+        const { data: tomorrowData } = await getDate(tomorrow);
+        tomorrowEmbed = buildAlmanaxTomorrowPreview(tomorrowData);
+      } catch (err) {
+        log.warn({ err }, 'Failed to fetch tomorrow almanax preview');
+      }
+
+      const embeds = tomorrowEmbed ? [todayEmbed, tomorrowEmbed] : [todayEmbed];
 
       const client = discordClient();
 
@@ -33,7 +46,7 @@ export function registerAlmanaxCron(): void {
             continue;
           }
 
-          await channel.send({ embeds: [embed] });
+          await channel.send({ embeds });
           log.info({ guildId: guild.guildId, channelId: guild.almanaxChannelId }, 'Daily almanax posted');
         } catch (err) {
           log.error({ err, guildId: guild.guildId, channelId: guild.almanaxChannelId }, 'Failed to post daily almanax');

@@ -6,6 +6,7 @@ import { errorEmbed } from '../../views/base.js';
 import * as dofusdude from '../../integrations/dofusdude/client.js';
 import * as almanaxApi from '../../integrations/almanax/client.js';
 import { buildItemEmbed, buildSearchResultsEmbed } from '../C-encyclopedia/views.js';
+import { resolveRecipeNames } from '../C-encyclopedia/commands.js';
 import { buildAlmanaxEmbed } from '../D-almanax/views.js';
 import { buildCrafterSearchEmbed } from '../E-professions/views.js';
 import { db } from '../../core/database.js';
@@ -50,7 +51,8 @@ async function handleDofusChercher(interaction: ModalSubmitInteraction): Promise
     if (results.length === 1) {
       try {
         const { data: item, stale: itemStale } = await dofusdude.getEquipment(results[0].ankama_id);
-        const embed = buildItemEmbed(item, itemStale);
+        const recipeNames = await resolveRecipeNames(item.recipe);
+        const embed = buildItemEmbed(item, itemStale, recipeNames);
         await interaction.editReply({ embeds: [embed] });
         return;
       } catch {

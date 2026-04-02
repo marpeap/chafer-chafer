@@ -57,13 +57,23 @@ const STATUS_LABELS: Record<string, string> = {
 export function buildCraftRequestEmbed(request: CraftRequest): EmbedBuilder {
   const statusLabel = STATUS_LABELS[request.status] ?? request.status;
 
+  // Build item display: link to encyclopedia if ankama_id is available
+  const itemDisplay = request.itemAnkamaId
+    ? `${request.quantity}x [${request.itemName}](https://www.dofusdu.de/fr/item/${request.itemAnkamaId})`
+    : `${request.quantity}x ${request.itemName}`;
+
   const embed = baseEmbed(`${Emoji.HAMMER} Demande de craft #${request.id}`, Colors.CRAFT)
     .addFields(
       { name: 'Métier', value: request.profession, inline: true },
-      { name: 'Objet', value: `${request.quantity}x ${request.itemName}`, inline: true },
+      { name: 'Objet', value: itemDisplay, inline: true },
       { name: 'Statut', value: statusLabel, inline: true },
       { name: 'Demandeur', value: `<@${request.requesterId}>`, inline: true },
     );
+
+  // Show item thumbnail from encyclopedia if available
+  if (request.itemImageUrl) {
+    embed.setThumbnail(request.itemImageUrl);
+  }
 
   if (request.crafterId) {
     embed.addFields({ name: 'Artisan', value: `<@${request.crafterId}>`, inline: true });

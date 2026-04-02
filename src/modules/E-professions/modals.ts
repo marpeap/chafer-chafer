@@ -3,6 +3,7 @@ import { db } from '../../core/database.js';
 import { childLogger } from '../../core/logger.js';
 import { successEmbed, errorEmbed } from '../../views/base.js';
 import { buildCraftRequestEmbed, buildCraftRequestRow } from './views.js';
+import { searchGlobal } from '../../integrations/dofusdude/client.js';
 
 const log = childLogger('E-professions:modals');
 
@@ -59,7 +60,7 @@ async function handleCraftDemande(interaction: ModalSubmitInteraction): Promise<
     return;
   }
 
-  const request = await db().craftRequest.create({
+  let request = await db().craftRequest.create({
     data: {
       guildId,
       requesterId: userId,
@@ -69,6 +70,23 @@ async function handleCraftDemande(interaction: ModalSubmitInteraction): Promise<
       description,
     },
   });
+
+  // Try to enrich with encyclopedia data (non-blocking)
+  try {
+    const { data: searchResults } = await searchGlobal(itemName, 1);
+    if (searchResults && searchResults.length > 0) {
+      const match = searchResults[0];
+      request = await db().craftRequest.update({
+        where: { id: request.id },
+        data: {
+          itemAnkamaId: match.ankama_id,
+          itemImageUrl: match.image_urls?.icon ?? null,
+        },
+      });
+    }
+  } catch {
+    // Non-blocking: if search fails, craft request still works without image
+  }
 
   // Post to metiers channel if configured
   const guild = await db().discordGuild.findUnique({ where: { guildId } });

@@ -21,11 +21,24 @@ export async function handleActivityButton(interaction: ButtonInteraction): Prom
 
 async function handleActivitySignup(interaction: ButtonInteraction): Promise<void> {
   const parts = interaction.customId.split(':');
-  // Format: activity:<action>:<id>
-  if (parts.length !== 3) return;
+  // Format: activity:<action>:<id>  OR  activity:role:<roleName>:<id>
+  let action: string;
+  let activityId: number;
+  let selectedRole: string | null = null;
 
-  const action = parts[1]; // join, maybe, unavailable
-  const activityId = parseInt(parts[2], 10);
+  if (parts.length === 4 && parts[1] === 'role') {
+    // Role-specific button: activity:role:tank:123
+    action = 'role';
+    selectedRole = parts[2]; // tank, heal, dps
+    activityId = parseInt(parts[3], 10);
+  } else if (parts.length === 3) {
+    // Standard button: activity:join:123
+    action = parts[1];
+    activityId = parseInt(parts[2], 10);
+  } else {
+    return;
+  }
+
   if (isNaN(activityId)) return;
 
   await interaction.deferUpdate();
@@ -50,17 +63,21 @@ async function handleActivitySignup(interaction: ButtonInteraction): Promise<voi
     join: 'confirmed',
     maybe: 'maybe',
     unavailable: 'unavailable',
+    role: 'confirmed', // role buttons auto-confirm with a role
   };
   const signupStatus = statusMap[action];
   if (!signupStatus) return;
 
-  // Check if user already has this status (toggle off)
+  // For non-role buttons, clear any existing role assignment
+  const roleToSet = action === 'role' ? selectedRole : null;
+
+  // Check if user already has this exact status + role (toggle off)
   const existing = activity.signups.find((s) => s.userId === interaction.user.id);
-  if (existing && existing.status === signupStatus) {
+  if (existing && existing.status === signupStatus && existing.role === roleToSet) {
     // Remove signup (toggle)
     await db().activitySignup.delete({ where: { id: existing.id } });
   } else {
-    // Upsert signup
+    // Upsert signup with role
     await db().activitySignup.upsert({
       where: {
         activityId_userId: {
@@ -72,9 +89,11 @@ async function handleActivitySignup(interaction: ButtonInteraction): Promise<voi
         activityId,
         userId: interaction.user.id,
         status: signupStatus,
+        role: roleToSet,
       },
       update: {
         status: signupStatus,
+        role: roleToSet,
       },
     });
   }
@@ -116,7 +135,7 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
     return;
   }
 
-  if (quickCall.status !== 'open') {
+  if (quickCall.status !== 'open' && quickCall.status !== 'filled') {
     await interaction.followUp({ embeds: [errorEmbed('Ce LFG n\'est plus actif.')], ephemeral: true });
     return;
   }
@@ -166,13 +185,19 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
       (r) => r.status === 'partant' || r.status === 'lead',
     ).length;
 
-    // Auto-fill if enough players
+    // Auto-fill if enough players, revert to open if below threshold
     if (activeResponders >= updatedCall.playersNeeded && updatedCall.status === 'open') {
       await db().quickCall.update({
         where: { id: quickCallId },
         data: { status: 'filled' },
       });
       updatedCall.status = 'filled';
+    } else if (activeResponders < updatedCall.playersNeeded && updatedCall.status === 'filled') {
+      await db().quickCall.update({
+        where: { id: quickCallId },
+        data: { status: 'open' },
+      });
+      updatedCall.status = 'open';
     }
 
     const card = buildQuickCallEmbed(updatedCall, updatedCall.responses);

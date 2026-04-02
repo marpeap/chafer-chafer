@@ -3,7 +3,7 @@ import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
 import { errorEmbed, successEmbed } from '../../views/base.js';
-import { buildActivityEmbed, buildQuickCallEmbed } from './views.js';
+import { buildActivityEmbed, buildQuickCallEmbed, parseRoleSlots } from './views.js';
 
 const log = childLogger('activities:modals');
 
@@ -33,7 +33,10 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
   const typeRaw = interaction.fields.getTextInputValue('type').trim().toLowerCase().replace('ê', 'e');
   const dateHeureStr = interaction.fields.getTextInputValue('date_heure').trim();
   const dureeMaxStr = interaction.fields.getTextInputValue('duree_max')?.trim() || '';
-  const description = interaction.fields.getTextInputValue('description')?.trim() || null;
+  const descriptionRaw = interaction.fields.getTextInputValue('description')?.trim() || null;
+
+  // Parse role slots from the first line of description (e.g. "2 Tank, 2 Heal, 4 DPS")
+  const { roleSlots, description } = parseRoleSlots(descriptionRaw);
 
   // Validate type
   const activityType = VALID_TYPES.includes(typeRaw) ? typeRaw : null;
@@ -122,6 +125,7 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
       title: titre,
       activityType,
       description,
+      roleSlots,
       scheduledAt,
       estimatedDuration,
       maxPlayers,
@@ -200,6 +204,8 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
   const joueursStr = interaction.fields.getTextInputValue('joueurs').trim();
   const dureeStr = interaction.fields.getTextInputValue('duree').trim();
   const commentaire = interaction.fields.getTextInputValue('commentaire')?.trim() || null;
+  let niveauStr: string | null = null;
+  try { niveauStr = interaction.fields.getTextInputValue('niveau')?.trim() || null; } catch { /* field may not exist */ }
 
   // Validate type
   const activityType = VALID_TYPES.includes(activiteRaw) ? activiteRaw : null;
@@ -219,13 +225,22 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
     return;
   }
 
-  // Validate duration (2-6h)
-  const dureeH = parseInt(dureeStr, 10);
-  if (isNaN(dureeH) || dureeH < 2 || dureeH > 6) {
+  // Validate duration (0.5-6h)
+  const dureeH = parseFloat(dureeStr.replace(',', '.'));
+  if (isNaN(dureeH) || dureeH < 0.5 || dureeH > 6) {
     await interaction.editReply({
-      embeds: [errorEmbed('Durée invalide. Doit être entre 2 et 6 heures.')],
+      embeds: [errorEmbed('Durée invalide. Doit être entre 0.5 et 6 heures.')],
     });
     return;
+  }
+
+  // Parse optional min level
+  let minLevel: number | null = null;
+  if (niveauStr) {
+    const parsed = parseInt(niveauStr, 10);
+    if (!isNaN(parsed) && parsed >= 1 && parsed <= 230) {
+      minLevel = parsed;
+    }
   }
 
   const expiresAt = new Date(Date.now() + dureeH * 60 * 60 * 1000);
@@ -258,6 +273,7 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
       activityType,
       description: commentaire,
       playersNeeded,
+      minLevel,
       expiresAt,
       status: 'open',
     },

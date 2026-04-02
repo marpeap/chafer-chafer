@@ -16,7 +16,7 @@ import {
   getMount,
   getSet,
 } from '../../integrations/dofusdude/client.js';
-import type { DofusDudeSearchResult, DofusDudeMount } from '../../integrations/dofusdude/client.js';
+import type { DofusDudeSearchResult, DofusDudeMount, DofusDudeItem } from '../../integrations/dofusdude/client.js';
 import { buildItemEmbed, buildMountEmbed, buildSetEmbed, buildSearchResultsEmbed } from './views.js';
 import { errorEmbed } from '../../views/base.js';
 import { childLogger } from '../../core/logger.js';
@@ -44,6 +44,43 @@ const DETAIL_FN: Record<string, (id: number) => Promise<{ data: any; stale: bool
   cosmetique: getCosmetic,
   chercher: getEquipment, // fallback for global search
 };
+
+function getSubtypeFetcher(subtype: string): ((id: number) => Promise<{ data: DofusDudeItem; stale: boolean }>) | undefined {
+  const map: Record<string, (id: number) => Promise<{ data: DofusDudeItem; stale: boolean }>> = {
+    'equipment': getEquipment,
+    'resources': getResource,
+    'consumables': getConsumable,
+    'quest': getQuestItem,
+    'cosmetics': getCosmetic,
+  };
+  return map[subtype] ?? map['resources'];
+}
+
+export async function resolveRecipeNames(recipe: DofusDudeItem['recipe']): Promise<Map<number, string>> {
+  const names = new Map<number, string>();
+  if (!recipe || recipe.length === 0) return names;
+
+  const toFetch = recipe.slice(0, 15);
+  const results = await Promise.allSettled(
+    toFetch.map(async (r) => {
+      try {
+        const fetcher = getSubtypeFetcher(r.item_subtype);
+        if (fetcher) {
+          const { data } = await fetcher(r.item_ankama_id);
+          return { id: r.item_ankama_id, name: data.name };
+        }
+      } catch { /* ignore */ }
+      return { id: r.item_ankama_id, name: null as string | null };
+    })
+  );
+
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value.name) {
+      names.set(result.value.id, result.value.name);
+    }
+  }
+  return names;
+}
 
 export async function handleDofus(interaction: ChatInputCommandInteraction): Promise<void> {
   const sub = interaction.options.getSubcommand();
@@ -77,7 +114,8 @@ export async function handleDofus(interaction: ChatInputCommandInteraction): Pro
       const fetcher = DETAIL_FN[sub] ?? getEquipment;
       try {
         const { data: item, stale } = await fetcher(ankamaId);
-        await interaction.editReply({ embeds: [buildItemEmbed(item, stale)] });
+        const recipeNames = await resolveRecipeNames(item.recipe);
+        await interaction.editReply({ embeds: [buildItemEmbed(item, stale, recipeNames)] });
         return;
       } catch {
         log.warn({ ankamaId, sub }, 'Direct fetch by ID failed, falling back to search');
@@ -117,7 +155,8 @@ async function showItemDetails(
   try {
     const { data: item, stale: detailStale } = await fetcher(result.ankama_id);
     const stale = searchStale || detailStale;
-    await interaction.editReply({ embeds: [buildItemEmbed(item, stale)] });
+    const recipeNames = await resolveRecipeNames(item.recipe);
+    await interaction.editReply({ embeds: [buildItemEmbed(item, stale, recipeNames)] });
   } catch {
     await interaction.editReply({ embeds: [buildSearchResultsEmbed([result], result.name)] });
   }

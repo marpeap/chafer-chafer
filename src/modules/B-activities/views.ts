@@ -26,11 +26,95 @@ const ACTIVITY_TYPE_EMOJI: Record<string, string> = {
   autre: Emoji.HAMMER,
 };
 
+// ==================== Role Slots Parsing ====================
+
+/** Role abbreviation mapping */
+const ROLE_ABBREV: Record<string, string> = {
+  t: 'tank',
+  tank: 'tank',
+  h: 'heal',
+  heal: 'heal',
+  d: 'dps',
+  dps: 'dps',
+};
+
+const ROLE_EMOJI: Record<string, string> = {
+  tank: '\u{1F6E1}\uFE0F',   // shield
+  heal: '\u2764\uFE0F',       // heart
+  dps: '\u2694\uFE0F',        // swords
+};
+
+const ROLE_LABEL: Record<string, string> = {
+  tank: 'Tanks',
+  heal: 'Heals',
+  dps: 'DPS',
+};
+
+export interface RoleSlotEntry {
+  role: string; // tank, heal, dps
+  count: number;
+}
+
+/**
+ * Parse a roleSlots string like "2T,2H,4D" or "2 Tank, 2 Heal, 4 DPS"
+ * into structured role slot entries.
+ */
+export function parseRoleSlotsString(raw: string | null | undefined): RoleSlotEntry[] {
+  if (!raw) return [];
+  const slots: RoleSlotEntry[] = [];
+  // Split by comma or space-separated groups
+  const parts = raw.split(/[,;]+/).map((p) => p.trim()).filter(Boolean);
+  for (const part of parts) {
+    // Match patterns: "2T", "2 Tank", "4DPS", "4 dps"
+    const match = part.match(/^(\d+)\s*([a-zA-Z]+)$/);
+    if (match) {
+      const count = parseInt(match[1], 10);
+      const roleKey = match[2].toLowerCase();
+      const role = ROLE_ABBREV[roleKey];
+      if (role && count > 0) {
+        // Merge if same role appears multiple times
+        const existing = slots.find((s) => s.role === role);
+        if (existing) {
+          existing.count += count;
+        } else {
+          slots.push({ role, count });
+        }
+      }
+    }
+  }
+  return slots;
+}
+
+/**
+ * Parse description field: extract role slots from the first line if it matches
+ * the pattern "2 Tank, 2 Heal, 4 DPS". Returns the parsed roleSlots string and
+ * the remaining description.
+ */
+export function parseRoleSlots(descriptionRaw: string | null): { roleSlots: string | null; description: string | null } {
+  if (!descriptionRaw) return { roleSlots: null, description: null };
+
+  const lines = descriptionRaw.split('\n');
+  const firstLine = lines[0].trim();
+
+  // Try to parse the first line as role slots
+  const parsed = parseRoleSlotsString(firstLine);
+  if (parsed.length > 0) {
+    // First line is role config — format it as the canonical string
+    const roleSlots = parsed.map((s) => `${s.count}${s.role[0].toUpperCase()}`).join(',');
+    const remaining = lines.slice(1).join('\n').trim() || null;
+    return { roleSlots, description: remaining };
+  }
+
+  // No role slots detected
+  return { roleSlots: null, description: descriptionRaw };
+}
+
 interface ActivityData {
   id: number;
   title: string;
   activityType: string;
   description: string | null;
+  roleSlots: string | null;
   scheduledAt: Date;
   estimatedDuration: number | null;
   maxPlayers: number | null;
@@ -41,6 +125,7 @@ interface ActivityData {
 interface SignupData {
   userId: string;
   status: string; // confirmed, maybe, unavailable
+  role: string | null;
 }
 
 interface QuickCallData {
@@ -48,6 +133,7 @@ interface QuickCallData {
   activityType: string;
   description: string | null;
   playersNeeded: number;
+  minLevel: number | null;
   expiresAt: Date;
   createdBy: string;
   status: string;
@@ -97,30 +183,76 @@ export function buildActivityEmbed(
     embed.addFields({ name: 'Description', value: truncate(activity.description, 1024) });
   }
 
-  // Signup lists
-  const confirmedList = confirmed.length > 0
-    ? confirmed.map((s) => `${Emoji.CHECK} <@${s.userId}>`).join('\n')
-    : '*Aucun*';
-  const maybeList = maybe.length > 0
-    ? maybe.map((s) => `${Emoji.MAYBE} <@${s.userId}>`).join('\n')
-    : '*Aucun*';
-  const unavailableList = unavailable.length > 0
-    ? unavailable.map((s) => `${Emoji.UNAVAILABLE} <@${s.userId}>`).join('\n')
-    : '*Aucun*';
+  // Parse role slots
+  const roleSlotEntries = parseRoleSlotsString(activity.roleSlots);
+  const hasRoles = roleSlotEntries.length > 0;
 
-  embed.addFields(
-    { name: `${Emoji.CHECK} Confirmés (${confirmed.length})`, value: truncate(confirmedList, 1024), inline: true },
-    { name: `${Emoji.MAYBE} Peut-être (${maybe.length})`, value: truncate(maybeList, 1024), inline: true },
-    { name: `${Emoji.UNAVAILABLE} Indisponibles (${unavailable.length})`, value: truncate(unavailableList, 1024), inline: true },
-  );
+  if (hasRoles) {
+    // Role-based signup display
+    for (const slot of roleSlotEntries) {
+      const emoji = ROLE_EMOJI[slot.role] ?? Emoji.SWORD;
+      const label = ROLE_LABEL[slot.role] ?? slot.role;
+      const roleSignups = confirmed.filter((s) => s.role === slot.role);
+      const list = roleSignups.length > 0
+        ? roleSignups.map((s) => `<@${s.userId}>`).join(', ')
+        : '*Aucun*';
+      embed.addFields({
+        name: `${emoji} ${label} (${roleSignups.length}/${slot.count})`,
+        value: truncate(list, 1024),
+        inline: true,
+      });
+    }
+
+    // Show unroled confirmed (people who signed up without a role)
+    const roledUserIds = new Set(
+      confirmed.filter((s) => s.role && ROLE_ABBREV[s.role]).map((s) => s.userId),
+    );
+    const unroled = confirmed.filter((s) => !roledUserIds.has(s.userId));
+    if (unroled.length > 0) {
+      embed.addFields({
+        name: `${Emoji.CHECK} Sans rôle (${unroled.length})`,
+        value: truncate(unroled.map((s) => `<@${s.userId}>`).join(', '), 1024),
+        inline: true,
+      });
+    }
+
+    // Maybe and unavailable
+    const maybeList = maybe.length > 0
+      ? maybe.map((s) => `<@${s.userId}>`).join(', ')
+      : '*Aucun*';
+    const unavailableList = unavailable.length > 0
+      ? unavailable.map((s) => `<@${s.userId}>`).join(', ')
+      : '*Aucun*';
+    embed.addFields(
+      { name: `${Emoji.MAYBE} Peut-être (${maybe.length})`, value: truncate(maybeList, 1024), inline: true },
+      { name: `${Emoji.UNAVAILABLE} Indisponibles (${unavailable.length})`, value: truncate(unavailableList, 1024), inline: true },
+    );
+  } else {
+    // Flat signup lists (no roles)
+    const confirmedList = confirmed.length > 0
+      ? confirmed.map((s) => `${Emoji.CHECK} <@${s.userId}>`).join('\n')
+      : '*Aucun*';
+    const maybeList = maybe.length > 0
+      ? maybe.map((s) => `${Emoji.MAYBE} <@${s.userId}>`).join('\n')
+      : '*Aucun*';
+    const unavailableList = unavailable.length > 0
+      ? unavailable.map((s) => `${Emoji.UNAVAILABLE} <@${s.userId}>`).join('\n')
+      : '*Aucun*';
+
+    embed.addFields(
+      { name: `${Emoji.CHECK} Confirmés (${confirmed.length})`, value: truncate(confirmedList, 1024), inline: true },
+      { name: `${Emoji.MAYBE} Peut-être (${maybe.length})`, value: truncate(maybeList, 1024), inline: true },
+      { name: `${Emoji.UNAVAILABLE} Indisponibles (${unavailable.length})`, value: truncate(unavailableList, 1024), inline: true },
+    );
+  }
 
   if (activity.status !== 'published') {
     embed.setFooter({ text: `Chafer Chafer — Statut : ${activity.status}` });
   }
 
-  // Buttons
+  // Buttons — Row 1: general signup
   const isClosed = activity.status === 'closed' || activity.status === 'cancelled';
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`activity:join:${activity.id}`)
       .setLabel('Présent')
@@ -141,7 +273,27 @@ export function buildActivityEmbed(
       .setDisabled(isClosed),
   );
 
-  return { embeds: [embed], components: [row] };
+  const components: ActionRowBuilder<ButtonBuilder>[] = [row1];
+
+  // Row 2: role-specific buttons (only if activity has role slots)
+  if (hasRoles) {
+    const roleRow = new ActionRowBuilder<ButtonBuilder>();
+    for (const slot of roleSlotEntries) {
+      const emoji = ROLE_EMOJI[slot.role] ?? Emoji.SWORD;
+      const label = ROLE_LABEL[slot.role] ?? slot.role;
+      roleRow.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`activity:role:${slot.role}:${activity.id}`)
+          .setLabel(label)
+          .setEmoji(emoji)
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(isClosed),
+      );
+    }
+    components.push(roleRow);
+  }
+
+  return { embeds: [embed], components };
 }
 
 export function buildQuickCallEmbed(
@@ -154,13 +306,54 @@ export function buildQuickCallEmbed(
   const partants = responses.filter((r) => r.status === 'partant');
   const leads = responses.filter((r) => r.status === 'lead');
   const pass = responses.filter((r) => r.status === 'pas_ce_soir');
+  const activeCount = partants.length + leads.length;
+  const isFilled = call.status === 'filled';
+  const isExpired = call.status === 'expired';
 
-  const embed = baseEmbed(`${Emoji.FIRE} LFG — ${typeLabel}`, Colors.LFG)
-    .addFields(
-      { name: 'Joueurs recherchés', value: `${partants.length + leads.length}/${call.playersNeeded}`, inline: true },
-      { name: 'Expire', value: discordTimestamp(call.expiresAt, 'R'), inline: true },
-      { name: 'Lancé par', value: `<@${call.createdBy}>`, inline: true },
-    );
+  // Determine embed color based on status
+  const msRemaining = call.expiresAt.getTime() - Date.now();
+  const urgentThreshold = 15 * 60 * 1000; // 15 minutes
+  let embedColor: number = Colors.LFG;
+  if (isFilled) {
+    embedColor = Colors.SUCCESS; // green when complete
+  } else if (isExpired) {
+    embedColor = Colors.NEUTRAL; // gray when expired
+  } else if (msRemaining > 0 && msRemaining <= urgentThreshold) {
+    embedColor = Colors.WARNING; // orange when <15min remaining
+  }
+
+  // Build title with COMPLET indicator
+  const statusTag = isFilled ? ' — COMPLET' : '';
+  const embed = baseEmbed(`${typeEmoji} LFG — ${typeLabel}${statusTag}`, embedColor);
+
+  // Player count field — prominent format
+  const playerCountStr = `${Emoji.PEOPLE} **${activeCount}/${call.playersNeeded}** joueurs`;
+  embed.addFields(
+    { name: 'Groupe', value: playerCountStr, inline: true },
+  );
+
+  // Expiry field — show human-readable remaining time + Discord relative timestamp
+  if (isFilled) {
+    embed.addFields({ name: 'Statut', value: `${Emoji.CHECK} Groupe complet !`, inline: true });
+  } else if (isExpired) {
+    embed.addFields({ name: 'Statut', value: 'Expiré', inline: true });
+  } else if (msRemaining > 0) {
+    const minsLeft = Math.ceil(msRemaining / 60000);
+    const timeStr = minsLeft >= 60
+      ? `${Math.floor(minsLeft / 60)}h${minsLeft % 60 > 0 ? ` ${minsLeft % 60}min` : ''}`
+      : `${minsLeft}min`;
+    const urgentPrefix = minsLeft <= 15 ? `${Emoji.CLOCK} ` : '';
+    embed.addFields({ name: 'Expire', value: `${urgentPrefix}dans ${timeStr} (${discordTimestamp(call.expiresAt, 'R')})`, inline: true });
+  } else {
+    embed.addFields({ name: 'Expire', value: discordTimestamp(call.expiresAt, 'R'), inline: true });
+  }
+
+  embed.addFields({ name: 'Lancé par', value: `<@${call.createdBy}>`, inline: true });
+
+  // Level requirement
+  if (call.minLevel) {
+    embed.addFields({ name: 'Niveau minimum', value: `${call.minLevel}`, inline: true });
+  }
 
   if (call.description) {
     embed.addFields({ name: 'Commentaire', value: truncate(call.description, 1024) });
@@ -183,11 +376,11 @@ export function buildQuickCallEmbed(
     { name: `${Emoji.UNAVAILABLE} Pas ce soir (${pass.length})`, value: truncate(passList, 1024), inline: true },
   );
 
-  if (call.status !== 'open') {
-    embed.setFooter({ text: `Chafer Chafer — ${call.status === 'expired' ? 'Expiré' : call.status === 'filled' ? 'Complet' : call.status}` });
+  if (call.status !== 'open' && !isFilled) {
+    embed.setFooter({ text: `Chafer Chafer — ${isExpired ? 'Expiré' : call.status}` });
   }
 
-  const isClosed = call.status !== 'open';
+  const isClosed = call.status !== 'open' && !isFilled;
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`lfg:partant:${call.id}`)
