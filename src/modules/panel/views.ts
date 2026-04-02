@@ -1,0 +1,395 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  ChannelSelectMenuBuilder,
+  RoleSelectMenuBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder,
+  ChannelType,
+} from 'discord.js';
+import { baseEmbed, Colors, Emoji } from '../../views/base.js';
+
+// ══════════════════════════════════════════════════
+//  PANNEAU PRINCIPAL — visible par tous les membres
+// ══════════════════════════════════════════════════
+
+export function buildMainPanelEmbed(): EmbedBuilder {
+  return baseEmbed(`${Emoji.SHIELD} Chafer Chafer`, Colors.PRIMARY)
+    .setDescription(
+      'Bienvenue ! Utilise les boutons ci-dessous pour interagir avec le bot.\n' +
+      'Pas besoin de taper de commandes — clique et c\'est parti.',
+    )
+    .addFields(
+      {
+        name: `${Emoji.CALENDAR} Almanax & Info`,
+        value: 'Bonus du jour, semaine, ou cherche un bonus précis.',
+        inline: false,
+      },
+      {
+        name: `${Emoji.SWORD} Activités`,
+        value: 'Organise une sortie, lance un appel rapide, ou consulte le planning.',
+        inline: false,
+      },
+      {
+        name: `${Emoji.HAMMER} Métiers & Craft`,
+        value: 'Inscris tes métiers, trouve un artisan, ou fais une demande de craft.',
+        inline: false,
+      },
+      {
+        name: `${Emoji.SEARCH} Encyclopédie & Autre`,
+        value: 'Cherche un objet Dofus, crée une demande d\'aide, ou consulte tes récompenses.',
+        inline: false,
+      },
+    );
+}
+
+export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
+  // Row 1 — Almanax
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:almanax_today')
+      .setLabel('Almanax du jour')
+      .setEmoji(Emoji.CALENDAR)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:almanax_semaine')
+      .setLabel('Semaine')
+      .setEmoji(Emoji.CALENDAR)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:almanax_bonus')
+      .setLabel('Chercher bonus')
+      .setEmoji(Emoji.SEARCH)
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Row 2 — Activities
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:sortie_creer')
+      .setLabel('Créer sortie')
+      .setEmoji(Emoji.SWORD)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('panel:lfg')
+      .setLabel('Chercher groupe')
+      .setEmoji(Emoji.PEOPLE)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('panel:sortie_liste')
+      .setLabel('Sorties à venir')
+      .setEmoji(Emoji.CLOCK)
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Row 3 — Professions (max 5 buttons)
+  const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:metier_inscrire')
+      .setLabel('Inscrire métier')
+      .setEmoji(Emoji.HAMMER)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:metier_chercher')
+      .setLabel('Chercher artisan')
+      .setEmoji(Emoji.SEARCH)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:craft_demande')
+      .setLabel('Demande craft')
+      .setEmoji(Emoji.WRENCH)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:metier_liste')
+      .setLabel('Mes métiers')
+      .setEmoji(Emoji.BOOK)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:metier_dispo')
+      .setLabel('Dispo')
+      .setEmoji(Emoji.CHECK)
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  // Row 4 — Encyclopedia + Forum + Rewards
+  const row4 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:dofus_chercher')
+      .setLabel('Chercher item')
+      .setEmoji(Emoji.SEARCH)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:demande_creer')
+      .setLabel('Demande forum')
+      .setEmoji(Emoji.SCROLL)
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:recompense_liste')
+      .setLabel('Mes récompenses')
+      .setEmoji(Emoji.TROPHY)
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  return [row1, row2, row3, row4];
+}
+
+// ══════════════════════════════════════════════════
+//  PANNEAU CONFIG — admin uniquement (éphémère)
+// ══════════════════════════════════════════════════
+
+export function buildConfigPanelEmbed(): EmbedBuilder {
+  return baseEmbed(`${Emoji.WRENCH} Configuration`, Colors.INFO)
+    .setDescription('Choisis ce que tu veux configurer.');
+}
+
+export function buildConfigPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:config_salons')
+      .setLabel('Configurer salons')
+      .setEmoji('📺')
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:config_roles')
+      .setLabel('Configurer rôles')
+      .setEmoji(Emoji.PEOPLE)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:config_flags')
+      .setLabel('Feature flags')
+      .setEmoji('🚩')
+      .setStyle(ButtonStyle.Secondary),
+  );
+  return [row];
+}
+
+// ── Channel select menus ──
+
+export function buildChannelSelectEmbed(): EmbedBuilder {
+  return baseEmbed('📺 Configuration des salons', Colors.INFO)
+    .setDescription(
+      'Sélectionne les salons dans les menus ci-dessous.\n' +
+      'Tu peux configurer chaque salon un par un.',
+    );
+}
+
+export function buildChannelSelectRows(): ActionRowBuilder<ChannelSelectMenuBuilder | ButtonBuilder>[] {
+  const row1 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:sorties')
+      .setPlaceholder('Salon des sorties')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row2 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:almanax')
+      .setPlaceholder('Salon almanax')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row3 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:metiers')
+      .setPlaceholder('Salon métiers')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row4 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:logs')
+      .setPlaceholder('Salon logs bot')
+      .setChannelTypes(ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row5 = new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(
+    new ChannelSelectMenuBuilder()
+      .setCustomId('panel:select_channel:forum')
+      .setPlaceholder('Forum demandes')
+      .setChannelTypes(ChannelType.GuildForum, ChannelType.GuildText)
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  return [row1, row2, row3, row4, row5];
+}
+
+// ── Role select menus ──
+
+export function buildRoleSelectEmbed(): EmbedBuilder {
+  return baseEmbed(`${Emoji.PEOPLE} Configuration des rôles`, Colors.INFO)
+    .setDescription(
+      'Sélectionne le rôle Discord correspondant à chaque niveau de permission.',
+    );
+}
+
+export function buildRoleSelectRows(): ActionRowBuilder<RoleSelectMenuBuilder>[] {
+  const row1 = new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('panel:select_role:admin')
+      .setPlaceholder('Rôle Admin')
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row2 = new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('panel:select_role:officier')
+      .setPlaceholder('Rôle Officier')
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row3 = new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('panel:select_role:veteran')
+      .setPlaceholder('Rôle Vétéran')
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  const row4 = new ActionRowBuilder<RoleSelectMenuBuilder>().addComponents(
+    new RoleSelectMenuBuilder()
+      .setCustomId('panel:select_role:membre')
+      .setPlaceholder('Rôle Membre')
+      .setMinValues(0)
+      .setMaxValues(1),
+  );
+
+  return [row1, row2, row3, row4];
+}
+
+// ── Feature flags select ──
+
+export function buildFlagsEmbed(flags: Record<string, boolean>): EmbedBuilder {
+  const embed = baseEmbed('🚩 Feature Flags', Colors.INFO);
+  const lines = Object.entries(flags).map(
+    ([flag, enabled]) => `${enabled ? Emoji.CHECK : Emoji.CROSS} \`${flag}\``,
+  );
+  embed.setDescription(lines.join('\n') || 'Aucun flag configuré.');
+  return embed;
+}
+
+export function buildFlagsSelectRow(flags: Record<string, boolean>): ActionRowBuilder<StringSelectMenuBuilder>[] {
+  const options = Object.entries(flags).map(([flag, enabled]) =>
+    new StringSelectMenuOptionBuilder()
+      .setLabel(flag.replace(/_/g, ' ').replace('enabled', '').trim())
+      .setDescription(enabled ? 'Activé — cliquer pour désactiver' : 'Désactivé — cliquer pour activer')
+      .setValue(flag)
+      .setEmoji(enabled ? Emoji.CHECK : Emoji.CROSS),
+  );
+
+  if (options.length === 0) return [];
+
+  const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('panel:toggle_flag')
+      .setPlaceholder('Cliquer pour activer/désactiver un module')
+      .addOptions(options),
+  );
+
+  return [row];
+}
+
+// ══════════════════════════════════════════════════
+//  PANNEAU OFFICIER — éphémère
+// ══════════════════════════════════════════════════
+
+export function buildOfficerPanelEmbed(): EmbedBuilder {
+  return baseEmbed(`${Emoji.SHIELD} Actions Officier`, Colors.WARNING)
+    .setDescription(
+      'Actions réservées aux officiers et admins.\n' +
+      'Les actions sur les sorties et récompenses existantes sont disponibles directement sur leurs cartes.',
+    );
+}
+
+export function buildOfficerPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:sortie_creer')
+      .setLabel('Créer sortie')
+      .setEmoji(Emoji.SWORD)
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId('panel:recompense_creer')
+      .setLabel('Créer récompense')
+      .setEmoji(Emoji.TROPHY)
+      .setStyle(ButtonStyle.Success),
+  );
+  return [row];
+}
+
+// ══════════════════════════════════════════════════
+//  MODALS pour les actions qui demandent un input
+// ══════════════════════════════════════════════════
+
+import {
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+} from 'discord.js';
+
+export function buildSearchItemModal(): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId('panel:modal_dofus_chercher')
+    .setTitle('Rechercher un objet Dofus')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('query')
+          .setLabel('Nom de l\'objet')
+          .setPlaceholder('Ex: Chafer, Gelano, Dofus Turquoise...')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(100),
+      ),
+    );
+}
+
+export function buildSearchArtisanModal(): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId('panel:modal_metier_chercher')
+    .setTitle('Chercher un artisan')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('profession')
+          .setLabel('Métier recherché')
+          .setPlaceholder('Ex: Bijoutier, Cordonnier, Forgeur de Dagues...')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(50),
+      ),
+    );
+}
+
+export function buildSearchBonusModal(): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId('panel:modal_almanax_bonus')
+    .setTitle('Chercher un bonus Almanax')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('bonus_type')
+          .setLabel('Type de bonus')
+          .setPlaceholder('Ex: Prospection, Sagesse, Force, Butin...')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(50),
+      ),
+    );
+}
+
+// Réutilise les modals existants — ces builders sont juste pour référence
+// Les modals sortie_creer, lfg_creer, metier_inscrire, craft_demande,
+// recompense_creer, demande_creer sont déjà dans leurs modules respectifs

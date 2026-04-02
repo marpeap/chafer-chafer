@@ -204,6 +204,23 @@ const commands = [
       sub.setName('creer')
         .setDescription('Créer une nouvelle demande')
     ),
+
+  // /panneau
+  new SlashCommandBuilder()
+    .setName('panneau')
+    .setDescription('Afficher le panneau de commandes')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('principal')
+        .setDescription('Poster le panneau principal (admin)')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('config')
+        .setDescription('Panneau de configuration (admin)')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('officier')
+        .setDescription('Panneau officier')
+    ),
 ];
 
 async function main() {

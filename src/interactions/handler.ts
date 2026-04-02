@@ -5,6 +5,8 @@ import {
   ModalSubmitInteraction,
   StringSelectMenuInteraction,
   AutocompleteInteraction,
+  ChannelSelectMenuInteraction,
+  RoleSelectMenuInteraction,
 } from 'discord.js';
 import { childLogger } from '../core/logger.js';
 import { handleInteractionError } from '../core/error-handler.js';
@@ -28,6 +30,11 @@ import { handleRewardButton } from '../modules/F-rewards/buttons.js';
 import { handleRewardModal } from '../modules/F-rewards/modals.js';
 import { handleDemande } from '../modules/H-forum/commands.js';
 import { handleDemandeModal } from '../modules/H-forum/modals.js';
+
+// Panel handlers
+import { handlePanneau } from '../modules/panel/commands.js';
+import { handlePanelButton, handlePanelChannelSelect, handlePanelRoleSelect, handlePanelFlagToggle } from '../modules/panel/buttons.js';
+import { handlePanelModal } from '../modules/panel/modals.js';
 
 const log = childLogger('handler');
 
@@ -86,6 +93,16 @@ export async function handleInteraction(interaction: Interaction): Promise<void>
 
     if (interaction.isStringSelectMenu()) {
       await handleSelectMenu(interaction);
+      return;
+    }
+
+    if (interaction.isChannelSelectMenu()) {
+      await handleChannelSelect(interaction);
+      return;
+    }
+
+    if (interaction.isRoleSelectMenu()) {
+      await handleRoleSelect(interaction);
       return;
     }
   } catch (err) {
@@ -151,6 +168,7 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
   // Route to handler
   switch (commandName) {
     case 'ping': return handlePing(interaction);
+    case 'panneau': return handlePanneau(interaction);
     case 'config': {
       const sub = interaction.options.getSubcommand();
       switch (sub) {
@@ -178,6 +196,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   const customId = interaction.customId;
   log.info({ customId, user: interaction.user.id }, 'Button clicked');
 
+  // Panel buttons
+  if (customId.startsWith('panel:')) {
+    return handlePanelButton(interaction);
+  }
+
   if (customId.startsWith('activity:') || customId.startsWith('lfg:')) {
     return handleActivityButton(interaction);
   }
@@ -195,6 +218,12 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
   const customId = interaction.customId;
   log.info({ customId, user: interaction.user.id }, 'Modal submitted');
 
+  // Panel modals
+  if (customId.startsWith('panel:modal_')) {
+    return handlePanelModal(interaction);
+  }
+
+  // Modals triggered from panel buttons use the same IDs as slash commands
   if (customId.startsWith('activity:') || customId === 'sortie_creer' || customId === 'lfg_creer') {
     return handleActivityModal(interaction);
   }
@@ -203,6 +232,11 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
   }
   if (customId === 'demande_creer') {
     return handleDemandeModal(interaction);
+  }
+  if (customId === 'metier_inscrire' || customId === 'craft_demande') {
+    // Route to professions module modal handler
+    const { handleProfessionModal } = await import('../modules/E-professions/modals.js');
+    return handleProfessionModal(interaction);
   }
 
   log.warn({ customId }, 'Unknown modal');
@@ -222,6 +256,28 @@ async function handleAutocomplete(interaction: AutocompleteInteraction): Promise
 }
 
 async function handleSelectMenu(interaction: StringSelectMenuInteraction): Promise<void> {
-  log.info({ customId: interaction.customId, user: interaction.user.id }, 'Select menu used');
-  // Future: route to appropriate handler
+  const customId = interaction.customId;
+  log.info({ customId, user: interaction.user.id }, 'Select menu used');
+
+  if (customId === 'panel:toggle_flag') {
+    return handlePanelFlagToggle(interaction);
+  }
+}
+
+async function handleChannelSelect(interaction: ChannelSelectMenuInteraction): Promise<void> {
+  const customId = interaction.customId;
+  log.info({ customId, user: interaction.user.id }, 'Channel select used');
+
+  if (customId.startsWith('panel:select_channel:')) {
+    return handlePanelChannelSelect(interaction);
+  }
+}
+
+async function handleRoleSelect(interaction: RoleSelectMenuInteraction): Promise<void> {
+  const customId = interaction.customId;
+  log.info({ customId, user: interaction.user.id }, 'Role select used');
+
+  if (customId.startsWith('panel:select_role:')) {
+    return handlePanelRoleSelect(interaction);
+  }
 }
