@@ -1,11 +1,26 @@
 import pino from 'pino';
-import { env } from '../config/env.js';
 
 let _logger: pino.Logger | null = null;
 
+function getOrCreateLogger(): pino.Logger {
+  if (!_logger) {
+    // Create a default logger if not yet initialized via initLogger
+    _logger = pino({
+      level: process.env.LOG_LEVEL || 'info',
+      timestamp: pino.stdTimeFunctions.isoTime,
+      formatters: {
+        level(label) {
+          return { level: label };
+        },
+      },
+    });
+  }
+  return _logger;
+}
+
 export function initLogger(): pino.Logger {
   _logger = pino({
-    level: env().LOG_LEVEL,
+    level: process.env.LOG_LEVEL || 'info',
     timestamp: pino.stdTimeFunctions.isoTime,
     formatters: {
       level(label) {
@@ -17,10 +32,9 @@ export function initLogger(): pino.Logger {
 }
 
 export function logger(): pino.Logger {
-  if (!_logger) throw new Error('Logger not initialized');
-  return _logger;
+  return getOrCreateLogger();
 }
 
 export function childLogger(module: string): pino.Logger {
-  return logger().child({ module });
+  return getOrCreateLogger().child({ module });
 }
