@@ -44,7 +44,7 @@ export function baseEmbed(title: string, color: number = Colors.PRIMARY): EmbedB
     .setColor(color)
     .setTitle(truncate(title, 256))
     .setTimestamp()
-    .setFooter({ text: 'Chafer Chafer — Développé par Marpeap de chez Marpeap Digitals · marpeap.com' });
+    .setFooter({ text: 'Chafer Chafer — Par Marpeap · marpeap.com' });
 }
 
 export function errorEmbed(message: string): EmbedBuilder {

@@ -51,7 +51,7 @@ export function buildMainPanelEmbed(): EmbedBuilder {
         inline: false,
       },
     )
-    .setFooter({ text: 'Chafer Chafer — Développé par Marpeap de chez Marpeap Digitals · marpeap.com' });
+    .setFooter({ text: 'Chafer Chafer — Par Marpeap · marpeap.com' });
 }
 
 export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {

@@ -16,7 +16,7 @@ export async function handlePing(interaction: ChatInputCommandInteraction): Prom
       { name: 'WebSocket', value: `${wsPing}ms`, inline: true },
       { name: 'Uptime', value: `${hours}h ${minutes}m ${seconds}s`, inline: true },
     )
-    .setDescription('Le bot est en ligne et fonctionne correctement.\n\n*Développé par **Marpeap** de chez **Marpeap Digitals** — [marpeap.com](https://marpeap.com)*');
+    .setDescription('Le bot est en ligne et fonctionne correctement.\n\n*Par **Marpeap** — [marpeap.com](https://marpeap.com)*');
 
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }

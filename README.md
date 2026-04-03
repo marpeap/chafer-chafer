@@ -1,7 +1,7 @@
 # Chafer Chafer — Guide Administrateur
 
 > Bot Discord de guilde DOFUS
-> Développé par **Marpeap** de chez **Marpeap Digitals** — [marpeap.com](https://marpeap.com)
+> Par **Marpeap** — [marpeap.com](https://marpeap.com)
 
 ---
 
@@ -477,4 +477,4 @@ Les fichiers sont en CSV avec séparateur `;` (compatible Excel FR direct).
 
 ---
 
-*Chafer Chafer — Développé par Marpeap de chez Marpeap Digitals · [marpeap.com](https://marpeap.com)*
+*Chafer Chafer — Par Marpeap · [marpeap.com](https://marpeap.com)*
