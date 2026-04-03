@@ -36,7 +36,7 @@ import {
 // Imports from other modules — reuse their logic
 import * as almanaxClient from '../../integrations/almanax/client.js';
 import { buildAlmanaxEmbed, buildAlmanaxWeekEmbed } from '../D-almanax/views.js';
-import { buildActivityListEmbed } from '../B-activities/views.js';
+import { buildActivityListEmbed, buildTypeSelectMessage } from '../B-activities/views.js';
 import { buildProfessionListEmbed, buildCrafterSearchEmbed } from '../E-professions/views.js';
 import { buildRewardListEmbed } from '../F-rewards/views.js';
 
@@ -63,6 +63,18 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
   const action = interaction.customId.replace('panel:', '');
 
   switch (action) {
+    // ── Membership (A-members) — always available, no flag check ──
+    case 'devenir_chafer':
+    case 'profile': {
+      const { handleMemberButton } = await import('../A-members/buttons.js');
+      return handleMemberButton(interaction);
+    }
+    case 'glandeur_dispo': {
+      if (!(await checkModuleEnabled(interaction, 'A-members'))) return;
+      const { handleMemberButton } = await import('../A-members/buttons.js');
+      return handleMemberButton(interaction);
+    }
+
     // ── Almanax ──
     case 'almanax_today':
       if (!(await checkModuleEnabled(interaction, 'D-almanax'))) return;
@@ -275,110 +287,13 @@ async function showSortieModal(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
-  const modal = new ModalBuilder()
-    .setCustomId('sortie_creer')
-    .setTitle('Créer une sortie')
-    .addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('titre')
-          .setLabel('Titre de la sortie')
-          .setPlaceholder('Ex: Donjon Comte Harebourg')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(100),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('type')
-          .setLabel('Type (donjon/koli/songe/quete/farm/pvp/autre)')
-          .setPlaceholder('donjon')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(20),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('date_heure')
-          .setLabel('Date et heure (JJ/MM/AAAA HH:MM)')
-          .setPlaceholder('15/04/2026 20:30')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('duree_max')
-          .setLabel('Durée (min) / Max joueurs (optionnel)')
-          .setPlaceholder('120/8')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('description')
-          .setLabel('Description (optionnel)')
-          .setPlaceholder('Infos supplémentaires...')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false)
-          .setMaxLength(500),
-      ),
-    );
-
-  await interaction.showModal(modal);
+  const msg = buildTypeSelectMessage('sortie');
+  await interaction.reply({ ...msg, ephemeral: true });
 }
 
 async function showLfgModal(interaction: ButtonInteraction): Promise<void> {
-  const modal = new ModalBuilder()
-    .setCustomId('lfg_creer')
-    .setTitle('Chercher un groupe')
-    .addComponents(
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('activite')
-          .setLabel('Activité')
-          .setPlaceholder('Ex: Donjon Tal Kasha, Koli 3v3...')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(100),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('joueurs')
-          .setLabel('Nombre de joueurs recherchés')
-          .setPlaceholder('3')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(2),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('duree')
-          .setLabel('Durée en heures (0.5 à 6)')
-          .setPlaceholder('1 (ou 0.5 pour 30min)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(3),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('niveau')
-          .setLabel('Niveau minimum (optionnel)')
-          .setPlaceholder('Ex: 100')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false)
-          .setMaxLength(3),
-      ),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(
-        new TextInputBuilder()
-          .setCustomId('commentaire')
-          .setLabel('Commentaire (optionnel)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false)
-          .setMaxLength(200),
-      ),
-    );
-
-  await interaction.showModal(modal);
+  const msg = buildTypeSelectMessage('lfg');
+  await interaction.reply({ ...msg, ephemeral: true });
 }
 
 async function showMetierInscrireModal(interaction: ButtonInteraction): Promise<void> {

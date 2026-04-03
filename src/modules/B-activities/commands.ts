@@ -1,15 +1,11 @@
 import {
   ChatInputCommandInteraction,
-  ModalBuilder,
-  ActionRowBuilder,
-  TextInputBuilder,
-  TextInputStyle,
 } from 'discord.js';
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
 import { errorEmbed, successEmbed } from '../../views/base.js';
-import { buildActivityListEmbed } from './views.js';
+import { buildActivityListEmbed, buildTypeSelectMessage } from './views.js';
 
 const log = childLogger('activities:commands');
 
@@ -31,117 +27,15 @@ export async function handleSortie(interaction: ChatInputCommandInteraction): Pr
 }
 
 export async function handleLfg(interaction: ChatInputCommandInteraction): Promise<void> {
-  const modal = new ModalBuilder()
-    .setCustomId('lfg_creer')
-    .setTitle('LFG — Appel rapide');
-
-  const activiteInput = new TextInputBuilder()
-    .setCustomId('activite')
-    .setLabel('Activité (donjon, koli, songe, quête, farm, pvp, autre)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: donjon')
-    .setRequired(true)
-    .setMaxLength(50);
-
-  const joueursInput = new TextInputBuilder()
-    .setCustomId('joueurs')
-    .setLabel('Joueurs recherchés')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: 3')
-    .setRequired(true)
-    .setMaxLength(3);
-
-  const dureeInput = new TextInputBuilder()
-    .setCustomId('duree')
-    .setLabel('Durée en heures (0.5 à 6)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: 1 (ou 0.5 pour 30min)')
-    .setRequired(true)
-    .setMaxLength(3);
-
-  const commentaireInput = new TextInputBuilder()
-    .setCustomId('commentaire')
-    .setLabel('Commentaire (optionnel)')
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Détails supplémentaires...')
-    .setRequired(false)
-    .setMaxLength(500);
-
-  const niveauInput = new TextInputBuilder()
-    .setCustomId('niveau')
-    .setLabel('Niveau minimum (optionnel)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('Ex: 100')
-    .setRequired(false)
-    .setMaxLength(3);
-
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(activiteInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(joueursInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(dureeInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(niveauInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(commentaireInput),
-  );
-
-  await interaction.showModal(modal);
+  const msg = buildTypeSelectMessage('lfg');
+  await interaction.reply({ ...msg, ephemeral: true });
 }
 
 // --- Subcommand handlers ---
 
 async function handleSortieCreer(interaction: ChatInputCommandInteraction): Promise<void> {
-  const modal = new ModalBuilder()
-    .setCustomId('sortie_creer')
-    .setTitle('Créer une sortie');
-
-  const titreInput = new TextInputBuilder()
-    .setCustomId('titre')
-    .setLabel('Titre de la sortie')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: Donjon Comte Harebourg')
-    .setRequired(true)
-    .setMaxLength(100);
-
-  const typeInput = new TextInputBuilder()
-    .setCustomId('type')
-    .setLabel('Type (donjon/koli/songe/quete/farm/pvp/autre)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: donjon')
-    .setRequired(true)
-    .setMaxLength(20);
-
-  const dateHeureInput = new TextInputBuilder()
-    .setCustomId('date_heure')
-    .setLabel('Date et heure (JJ/MM/AAAA HH:MM)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: 15/04/2026 21:00')
-    .setRequired(true)
-    .setMaxLength(20);
-
-  const dureeMaxInput = new TextInputBuilder()
-    .setCustomId('duree_max')
-    .setLabel('Durée estimée (min) / Max joueurs (ex: 120/8)')
-    .setStyle(TextInputStyle.Short)
-    .setPlaceholder('ex: 120/8')
-    .setRequired(false)
-    .setMaxLength(20);
-
-  const descriptionInput = new TextInputBuilder()
-    .setCustomId('description')
-    .setLabel('Description / Rôles (optionnel)')
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder('Ex: 2 Tank, 2 Heal, 4 DPS\nDétails de la sortie...')
-    .setRequired(false)
-    .setMaxLength(1000);
-
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(titreInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(typeInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(dateHeureInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(dureeMaxInput),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
-  );
-
-  await interaction.showModal(modal);
+  const msg = buildTypeSelectMessage('sortie');
+  await interaction.reply({ ...msg, ephemeral: true });
 }
 
 async function handleSortieListe(interaction: ChatInputCommandInteraction): Promise<void> {

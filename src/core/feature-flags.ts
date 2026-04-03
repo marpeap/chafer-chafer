@@ -36,6 +36,7 @@ export async function getAllFlags(guildId: string): Promise<Record<string, boole
 }
 
 export const FLAGS = [
+  'members_enabled',
   'scheduled_activities_enabled',
   'quick_calls_enabled',
   'almanax_daily_enabled',
@@ -49,6 +50,7 @@ export type FlagName = (typeof FLAGS)[number];
 
 // Map module name → required flag
 export const MODULE_FLAGS: Record<string, FlagName> = {
+  'A-members': 'members_enabled',
   'B-activities': 'scheduled_activities_enabled',
   'C-encyclopedia': 'encyclopedia_enabled',
   'D-almanax': 'almanax_daily_enabled',

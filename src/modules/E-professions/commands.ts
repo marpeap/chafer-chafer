@@ -21,7 +21,7 @@ const log = childLogger('E-professions');
 
 // ────────────────── DOFUS Professions ──────────────────
 
-const PROFESSIONS = [
+export const PROFESSIONS = [
   'Bijoutier',
   'Bricoleur',
   'Cordonnier',

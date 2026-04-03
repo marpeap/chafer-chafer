@@ -144,6 +144,30 @@ model IntegrationFailure {
   @@map("integration_failures")
 }
 
+// ==================== PLAYER PROFILES (Module A) ====================
+
+model PlayerProfile {
+  id              Int       @id @default(autoincrement())
+  guildId         String    @map("guild_id")
+  userId          String    @map("user_id")
+  status          String    @default("pending") // pending, approved, rejected
+  characterName   String?   @map("character_name")
+  characterClass  String?   @map("character_class")
+  characterLevel  Int?      @map("character_level")
+  orientation     String?   // pvm, pvp, both
+  presentation    String?
+  professions200  String?   @map("professions_200") // comma-separated list of level 200 professions
+  globalAvailable Boolean   @default(false) @map("global_available") // "Glandeur Dispo" flag
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@unique([guildId, userId])
+  @@index([guildId, status])
+  @@map("player_profiles")
+}
+
 // ==================== ACTIVITIES (Module B) ====================
 
 model Activity {

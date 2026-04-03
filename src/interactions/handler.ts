@@ -201,6 +201,12 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
     return handlePanelButton(interaction);
   }
 
+  // Member buttons (A-members module)
+  if (customId.startsWith('member:')) {
+    const { handleMemberButton } = await import('../modules/A-members/buttons.js');
+    return handleMemberButton(interaction);
+  }
+
   if (customId.startsWith('activity:') || customId.startsWith('lfg:')) {
     return handleActivityButton(interaction);
   }
@@ -223,8 +229,15 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
     return handlePanelModal(interaction);
   }
 
+  // Member modals (A-members module)
+  if (customId.startsWith('member:')) {
+    const { handleMemberModal } = await import('../modules/A-members/modals.js');
+    return handleMemberModal(interaction);
+  }
+
   // Modals triggered from panel buttons use the same IDs as slash commands
-  if (customId.startsWith('activity:') || customId === 'sortie_creer' || customId === 'lfg_creer') {
+  // Support both old format (sortie_creer / lfg_creer) and new 2-step format (sortie_creer:type / lfg_creer:type)
+  if (customId.startsWith('activity:') || customId.startsWith('sortie_creer') || customId.startsWith('lfg_creer')) {
     return handleActivityModal(interaction);
   }
   if (customId.startsWith('reward:') || customId === 'recompense_creer') {

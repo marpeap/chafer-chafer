@@ -1,13 +1,27 @@
-import { ButtonInteraction, TextChannel } from 'discord.js';
+import {
+  ButtonInteraction,
+  TextChannel,
+  ModalBuilder,
+  ActionRowBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  GuildMember,
+} from 'discord.js';
 import { db } from '../../core/database.js';
 import { childLogger } from '../../core/logger.js';
-import { errorEmbed } from '../../views/base.js';
+import { errorEmbed, noPermissionEmbed } from '../../views/base.js';
 import { buildActivityEmbed, buildQuickCallEmbed } from './views.js';
+import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
 
 const log = childLogger('activities:buttons');
 
 export async function handleActivityButton(interaction: ButtonInteraction): Promise<void> {
   const { customId } = interaction;
+
+  // 2-step type selection buttons: activity:type_select:{flowType}:{type}
+  if (customId.startsWith('activity:type_select:')) {
+    return handleTypeSelect(interaction);
+  }
 
   if (customId.startsWith('activity:')) {
     return handleActivitySignup(interaction);
@@ -17,6 +31,116 @@ export async function handleActivityButton(interaction: ButtonInteraction): Prom
   }
 
   log.warn({ customId }, 'Unknown activity button');
+}
+
+async function handleTypeSelect(interaction: ButtonInteraction): Promise<void> {
+  const parts = interaction.customId.split(':');
+  // activity:type_select:{flowType}:{type}
+  if (parts.length !== 4) return;
+
+  const flowType = parts[2]; // 'sortie' | 'lfg'
+  const activityType = parts[3];
+
+  if (flowType === 'sortie') {
+    // Permission check — sortie creation requires OFFICER
+    const member = interaction.member as GuildMember;
+    const level = await getMemberLevel(member);
+    if (!requireLevel(PermissionLevel.OFFICER, level)) {
+      await interaction.reply({
+        embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const modal = new ModalBuilder()
+      .setCustomId(`sortie_creer:${activityType}`)
+      .setTitle('Cr\u00E9er une sortie')
+      .addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('titre')
+            .setLabel('Titre de la sortie')
+            .setPlaceholder('Ex: Donjon Comte Harebourg')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(100),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('date_heure')
+            .setLabel('Date et heure (JJ/MM/AAAA HH:MM)')
+            .setPlaceholder('15/04/2026 20:30')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(20),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('duree_max')
+            .setLabel('Dur\u00E9e (min) / Max joueurs (optionnel)')
+            .setPlaceholder('120/8')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setMaxLength(20),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('description')
+            .setLabel('Description / R\u00F4les (optionnel)')
+            .setPlaceholder('Ex: 2 Tank, 2 Heal, 4 DPS\nD\u00E9tails de la sortie...')
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(false)
+            .setMaxLength(1000),
+        ),
+      );
+
+    await interaction.showModal(modal);
+  } else if (flowType === 'lfg') {
+    const modal = new ModalBuilder()
+      .setCustomId(`lfg_creer:${activityType}`)
+      .setTitle('LFG \u2014 Appel rapide')
+      .addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('joueurs')
+            .setLabel('Joueurs recherch\u00E9s')
+            .setPlaceholder('ex: 3')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(3),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('duree')
+            .setLabel('Dur\u00E9e en heures (0.5 \u00E0 6)')
+            .setPlaceholder('1 (ou 0.5 pour 30min)')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true)
+            .setMaxLength(3),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('niveau')
+            .setLabel('Niveau minimum (optionnel)')
+            .setPlaceholder('Ex: 100')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setMaxLength(3),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('commentaire')
+            .setLabel('Commentaire (optionnel)')
+            .setStyle(TextInputStyle.Paragraph)
+            .setPlaceholder('D\u00E9tails suppl\u00E9mentaires...')
+            .setRequired(false)
+            .setMaxLength(500),
+        ),
+      );
+
+    await interaction.showModal(modal);
+  }
 }
 
 async function handleActivitySignup(interaction: ButtonInteraction): Promise<void> {

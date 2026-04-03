@@ -6,6 +6,47 @@ import {
 } from 'discord.js';
 import { baseEmbed, Colors, Emoji, discordTimestamp, truncate } from '../../views/base.js';
 
+// ==================== Type Selection (2-step flow) ====================
+
+export function buildTypeSelectMessage(flowType: 'sortie' | 'lfg'): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+  const embed = baseEmbed(
+    flowType === 'sortie' ? '\u2694\uFE0F Quel type de sortie ?' : '\uD83D\uDC65 Quel type d\'activit\u00E9 ?',
+    Colors.INFO,
+  ).setDescription('Choisis le type d\'activit\u00E9 :');
+
+  const types = [
+    { label: 'Donjon', emoji: '\u2694\uFE0F', value: 'donjon' },
+    { label: 'Koliz\u00E9um', emoji: '\uD83C\uDFDF\uFE0F', value: 'koli' },
+    { label: 'Songe', emoji: '\uD83D\uDCAD', value: 'songe' },
+    { label: 'Qu\u00EAte', emoji: '\uD83D\uDCDC', value: 'quete' },
+    { label: 'Farm', emoji: '\uD83C\uDF3E', value: 'farm' },
+    { label: 'PvP', emoji: '\u26A1', value: 'pvp' },
+    { label: 'Autre', emoji: '\uD83C\uDFB2', value: 'autre' },
+  ];
+
+  // 2 rows: 4 + 3 buttons
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...types.slice(0, 4).map(t =>
+      new ButtonBuilder()
+        .setCustomId(`activity:type_select:${flowType}:${t.value}`)
+        .setLabel(t.label)
+        .setEmoji(t.emoji)
+        .setStyle(ButtonStyle.Secondary)
+    )
+  );
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    ...types.slice(4).map(t =>
+      new ButtonBuilder()
+        .setCustomId(`activity:type_select:${flowType}:${t.value}`)
+        .setLabel(t.label)
+        .setEmoji(t.emoji)
+        .setStyle(ButtonStyle.Secondary)
+    )
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
+
 const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   donjon: 'Donjon',
   koli: 'Kolizéum',

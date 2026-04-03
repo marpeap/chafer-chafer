@@ -12,10 +12,11 @@ const VALID_TYPES = ['donjon', 'koli', 'songe', 'quete', 'farm', 'pvp', 'autre']
 export async function handleActivityModal(interaction: ModalSubmitInteraction): Promise<void> {
   const { customId } = interaction;
 
-  if (customId === 'sortie_creer') {
+  // Support both old format (sortie_creer) and new format (sortie_creer:donjon)
+  if (customId === 'sortie_creer' || customId.startsWith('sortie_creer:')) {
     return handleSortieCreerModal(interaction);
   }
-  if (customId === 'lfg_creer') {
+  if (customId === 'lfg_creer' || customId.startsWith('lfg_creer:')) {
     return handleLfgCreerModal(interaction);
   }
 
@@ -30,7 +31,6 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
 
   // Parse fields
   const titre = interaction.fields.getTextInputValue('titre').trim();
-  const typeRaw = interaction.fields.getTextInputValue('type').trim().toLowerCase().replace('ê', 'e');
   const dateHeureStr = interaction.fields.getTextInputValue('date_heure').trim();
   const dureeMaxStr = interaction.fields.getTextInputValue('duree_max')?.trim() || '';
   const descriptionRaw = interaction.fields.getTextInputValue('description')?.trim() || null;
@@ -38,11 +38,21 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
   // Parse role slots from the first line of description (e.g. "2 Tank, 2 Heal, 4 DPS")
   const { roleSlots, description } = parseRoleSlots(descriptionRaw);
 
-  // Validate type
-  const activityType = VALID_TYPES.includes(typeRaw) ? typeRaw : null;
+  // Extract type from customId (new format: sortie_creer:donjon) or fallback to text field (old format)
+  let activityType: string | null = null;
+  const customIdParts = interaction.customId.split(':');
+  if (customIdParts.length >= 2 && VALID_TYPES.includes(customIdParts[1])) {
+    activityType = customIdParts[1];
+  } else {
+    // Backward compat: try to read from the type text field
+    try {
+      const typeRaw = interaction.fields.getTextInputValue('type').trim().toLowerCase().replace('\u00EA', 'e');
+      activityType = VALID_TYPES.includes(typeRaw) ? typeRaw : null;
+    } catch { /* field does not exist in new modal */ }
+  }
   if (!activityType) {
     await interaction.editReply({
-      embeds: [errorEmbed(`Type invalide : \`${typeRaw}\`. Types valides : ${VALID_TYPES.join(', ')}`)],
+      embeds: [errorEmbed(`Type invalide. Types valides : ${VALID_TYPES.join(', ')}`)],
     });
     return;
   }
@@ -200,18 +210,27 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
   await interaction.deferReply({ ephemeral: true });
 
   // Parse fields
-  const activiteRaw = interaction.fields.getTextInputValue('activite').trim().toLowerCase().replace('ê', 'e');
   const joueursStr = interaction.fields.getTextInputValue('joueurs').trim();
   const dureeStr = interaction.fields.getTextInputValue('duree').trim();
   const commentaire = interaction.fields.getTextInputValue('commentaire')?.trim() || null;
   let niveauStr: string | null = null;
   try { niveauStr = interaction.fields.getTextInputValue('niveau')?.trim() || null; } catch { /* field may not exist */ }
 
-  // Validate type
-  const activityType = VALID_TYPES.includes(activiteRaw) ? activiteRaw : null;
+  // Extract type from customId (new format: lfg_creer:donjon) or fallback to text field (old format)
+  let activityType: string | null = null;
+  const customIdParts = interaction.customId.split(':');
+  if (customIdParts.length >= 2 && VALID_TYPES.includes(customIdParts[1])) {
+    activityType = customIdParts[1];
+  } else {
+    // Backward compat: try to read from the activite text field
+    try {
+      const activiteRaw = interaction.fields.getTextInputValue('activite').trim().toLowerCase().replace('\u00EA', 'e');
+      activityType = VALID_TYPES.includes(activiteRaw) ? activiteRaw : null;
+    } catch { /* field does not exist in new modal */ }
+  }
   if (!activityType) {
     await interaction.editReply({
-      embeds: [errorEmbed(`Type invalide : \`${activiteRaw}\`. Types valides : ${VALID_TYPES.join(', ')}`)],
+      embeds: [errorEmbed(`Type invalide. Types valides : ${VALID_TYPES.join(', ')}`)],
     });
     return;
   }
