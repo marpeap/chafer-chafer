@@ -342,7 +342,7 @@ export function buildOfficerPanelEmbed(): EmbedBuilder {
 }
 
 export function buildOfficerPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('panel:sortie_creer')
       .setLabel('Créer sortie')
@@ -354,7 +354,19 @@ export function buildOfficerPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
       .setEmoji(Emoji.TROPHY)
       .setStyle(ButtonStyle.Success),
   );
-  return [row];
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('panel:admin_membres')
+      .setLabel('Liste membres')
+      .setEmoji(Emoji.PEOPLE)
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:admin_historique')
+      .setLabel('Historique')
+      .setEmoji(Emoji.SCROLL)
+      .setStyle(ButtonStyle.Secondary),
+  );
+  return [row1, row2];
 }
 
 // ══════════════════════════════════════════════════
@@ -414,6 +426,23 @@ export function buildSearchBonusModal(): ModalBuilder {
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
           .setMaxLength(50),
+      ),
+    );
+}
+
+export function buildHistoriqueUserModal(): ModalBuilder {
+  return new ModalBuilder()
+    .setCustomId('admin:modal_historique')
+    .setTitle('Voir l\'historique d\'un membre')
+    .addComponents(
+      new ActionRowBuilder<TextInputBuilder>().addComponents(
+        new TextInputBuilder()
+          .setCustomId('user_id')
+          .setLabel('ID utilisateur ou @mention')
+          .setPlaceholder('Ex: 123456789012345678')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(30),
       ),
     );
 }

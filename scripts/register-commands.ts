@@ -225,6 +225,27 @@ const commands = [
         .setDescription('Créer une nouvelle demande')
     ),
 
+  // /export
+  new SlashCommandBuilder()
+    .setName('export')
+    .setDescription('Exporter des donnees en CSV (admin)')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('membres')
+        .setDescription('Exporter les membres approuves')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('activites')
+        .setDescription('Exporter les activites (30 derniers jours)')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('recompenses')
+        .setDescription('Exporter les recompenses')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('audit')
+        .setDescription('Exporter le journal d\'audit (7 derniers jours)')
+    ),
+
   // /panneau
   new SlashCommandBuilder()
     .setName('panneau')
@@ -240,6 +261,37 @@ const commands = [
     .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
       sub.setName('officier')
         .setDescription('Panneau officier')
+    ),
+
+  // /admin
+  new SlashCommandBuilder()
+    .setName('admin')
+    .setDescription('Administration des membres (officier+)')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('membres')
+        .setDescription('Lister les membres approuves')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('profil')
+        .setDescription('Voir le profil detaille d\'un membre')
+        .addUserOption(o => o.setName('utilisateur').setDescription('Le membre a consulter').setRequired(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('note')
+        .setDescription('Ajouter une note au profil d\'un membre (admin)')
+        .addUserOption(o => o.setName('utilisateur').setDescription('Le membre concerne').setRequired(true))
+        .addStringOption(o => o.setName('texte').setDescription('Contenu de la note').setRequired(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('warn')
+        .setDescription('Avertir un membre (admin)')
+        .addUserOption(o => o.setName('utilisateur').setDescription('Le membre a avertir').setRequired(true))
+        .addStringOption(o => o.setName('raison').setDescription('Raison de l\'avertissement').setRequired(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('historique')
+        .setDescription('Voir l\'historique d\'audit d\'un membre')
+        .addUserOption(o => o.setName('utilisateur').setDescription('Le membre a consulter').setRequired(true))
     ),
 ];
 

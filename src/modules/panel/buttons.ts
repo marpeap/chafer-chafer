@@ -31,6 +31,7 @@ import {
   buildFlagsSelectRow,
   buildOfficerPanelEmbed,
   buildOfficerPanelRows,
+  buildHistoriqueUserModal,
 } from './views.js';
 
 // Imports from other modules — reuse their logic
@@ -137,6 +138,12 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
       if (!(await checkModuleEnabled(interaction, 'F-rewards'))) return;
       return showRecompenseModal(interaction);
     }
+
+    // ── Admin member management (officer+) ──
+    case 'admin_membres':
+      return handleAdminMembresButton(interaction);
+    case 'admin_historique':
+      return handleAdminHistoriqueButton(interaction);
 
     // ── Config (admin) ──
     case 'config_salons':
@@ -270,6 +277,37 @@ async function handleRecompenseListe(interaction: ButtonInteraction): Promise<vo
     log.error({ err }, 'handleRecompenseListe error');
     await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la récupération des récompenses.')] });
   }
+}
+
+// ══════════════════════════════════
+//  ADMIN MEMBER MANAGEMENT (officer+)
+// ══════════════════════════════════
+
+async function handleAdminMembresButton(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
+      ephemeral: true,
+    });
+    return;
+  }
+  const { handleAdminMembres } = await import('../admin/members.js');
+  return handleAdminMembres(interaction);
+}
+
+async function handleAdminHistoriqueButton(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
+      ephemeral: true,
+    });
+    return;
+  }
+  await interaction.showModal(buildHistoriqueUserModal());
 }
 
 // ══════════════════════════════════

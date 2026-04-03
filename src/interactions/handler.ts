@@ -18,6 +18,8 @@ import { MODULE_FLAGS } from '../core/feature-flags.js';
 // Module handlers registry
 import { handlePing } from '../modules/admin/ping.js';
 import { handleConfigSalons, handleConfigRoles, handleConfigFlags, handleConfigPing } from '../modules/admin/config.js';
+import { handleExport } from '../modules/admin/export.js';
+import { handleAdminMembres, handleAdminProfil, handleAdminNote, handleAdminWarn, handleAdminHistorique, handleAdminMemberButton, handleAdminMemberModal } from '../modules/admin/members.js';
 import { handleAlmanax, handleAlmanaxAutocomplete } from '../modules/D-almanax/commands.js';
 import { handleDofus, handleDofusAutocomplete } from '../modules/C-encyclopedia/commands.js';
 import { handleSortie, handleLfg } from '../modules/B-activities/commands.js';
@@ -53,6 +55,7 @@ const COMMAND_MODULE: Record<string, string> = {
 // Command → required permission level
 const COMMAND_PERMISSIONS: Record<string, PermissionLevel> = {
   config: PermissionLevel.ADMIN,
+  export: PermissionLevel.ADMIN,
 };
 
 // Subcommand-level permission overrides
@@ -66,6 +69,13 @@ const SUBCOMMAND_PERMISSIONS: Record<string, Record<string, PermissionLevel>> = 
     creer: PermissionLevel.OFFICER,
     payer: PermissionLevel.OFFICER,
     annuler: PermissionLevel.OFFICER,
+  },
+  admin: {
+    membres: PermissionLevel.OFFICER,
+    profil: PermissionLevel.OFFICER,
+    historique: PermissionLevel.OFFICER,
+    note: PermissionLevel.ADMIN,
+    warn: PermissionLevel.ADMIN,
   },
 };
 
@@ -187,6 +197,18 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
     case 'craft': return handleCraft(interaction);
     case 'recompense': return handleRecompense(interaction);
     case 'demande': return handleDemande(interaction);
+    case 'export': return handleExport(interaction);
+    case 'admin': {
+      const sub = interaction.options.getSubcommand();
+      switch (sub) {
+        case 'membres': return handleAdminMembres(interaction);
+        case 'profil': return handleAdminProfil(interaction);
+        case 'note': return handleAdminNote(interaction);
+        case 'warn': return handleAdminWarn(interaction);
+        case 'historique': return handleAdminHistorique(interaction);
+      }
+      return;
+    }
     default:
       log.warn({ command: commandName }, 'Unknown command');
   }
@@ -199,6 +221,11 @@ async function handleButton(interaction: ButtonInteraction): Promise<void> {
   // Panel buttons
   if (customId.startsWith('panel:')) {
     return handlePanelButton(interaction);
+  }
+
+  // Admin member buttons
+  if (customId.startsWith('admin:')) {
+    return handleAdminMemberButton(interaction);
   }
 
   // Member buttons (A-members module)
@@ -227,6 +254,11 @@ async function handleModal(interaction: ModalSubmitInteraction): Promise<void> {
   // Panel modals
   if (customId.startsWith('panel:modal_')) {
     return handlePanelModal(interaction);
+  }
+
+  // Admin member modals
+  if (customId.startsWith('admin:modal_')) {
+    return handleAdminMemberModal(interaction);
   }
 
   // Member modals (A-members module)

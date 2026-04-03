@@ -9,6 +9,7 @@ import {
   buildProfileViewButtons,
   buildProfileEditModal,
   buildProfessions200Modal,
+  type ProfileStats,
 } from './views.js';
 
 const log = childLogger('A-members:buttons');
@@ -89,8 +90,24 @@ async function handleProfile(interaction: ButtonInteraction): Promise<void> {
     return;
   }
 
+  const [activityCount, quickCallCount, craftsMade, craftsFulfilled, rewardsPaid] = await Promise.all([
+    db().activitySignup.count({ where: { userId, activity: { guildId } } }),
+    db().quickCallResponse.count({ where: { userId, quickCall: { guildId } } }),
+    db().craftRequest.count({ where: { guildId, requesterId: userId } }),
+    db().craftRequest.count({ where: { guildId, crafterId: userId } }),
+    db().reward.count({ where: { guildId, recipientId: userId, status: 'paid' } }),
+  ]);
+
+  const stats: ProfileStats = {
+    activityCount,
+    quickCallCount,
+    craftsMade,
+    craftsFulfilled,
+    rewardsPaid,
+  };
+
   const member = interaction.member as GuildMember;
-  const embed = buildProfileEmbed(profile, member);
+  const embed = buildProfileEmbed(profile, member, stats);
   const buttons = buildProfileViewButtons();
 
   await interaction.reply({

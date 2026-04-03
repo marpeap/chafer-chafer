@@ -26,9 +26,23 @@ const ORIENTATION_LABELS: Record<string, string> = {
   both: 'Les deux',
 };
 
+// ────────────────── Profile stats ──────────────────
+
+export interface ProfileStats {
+  activityCount: number;
+  quickCallCount: number;
+  craftsMade: number;
+  craftsFulfilled: number;
+  rewardsPaid: number;
+}
+
 // ────────────────── Profile embed ──────────────────
 
-export function buildProfileEmbed(profile: PlayerProfile, member: GuildMember): EmbedBuilder {
+export function buildProfileEmbed(
+  profile: PlayerProfile,
+  member: GuildMember,
+  stats?: ProfileStats,
+): EmbedBuilder {
   const color = ORIENTATION_COLORS[profile.orientation ?? ''] ?? Colors.PRIMARY;
   const embed = new EmbedBuilder()
     .setColor(color)
@@ -90,6 +104,18 @@ export function buildProfileEmbed(profile: PlayerProfile, member: GuildMember): 
     value: statusText,
     inline: true,
   });
+
+  if (stats) {
+    fields.push({
+      name: '\u{1F4CA} Statistiques',
+      value: [
+        `\u{2694}\u{FE0F} Sorties: ${stats.activityCount} | \u{1F465} Groupes: ${stats.quickCallCount}`,
+        `\u{1F4E6} Crafts demand\u00e9s: ${stats.craftsMade} | \u{1F528} Crafts r\u00e9alis\u00e9s: ${stats.craftsFulfilled}`,
+        `\u{1F3C6} R\u00e9compenses re\u00e7ues: ${stats.rewardsPaid}`,
+      ].join('\n'),
+      inline: false,
+    });
+  }
 
   embed.addFields(fields);
 
