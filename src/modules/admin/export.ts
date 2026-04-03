@@ -235,12 +235,15 @@ async function exportAudit(interaction: ChatInputCommandInteraction): Promise<vo
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+  const EXPORT_LIMIT = 5000;
+
   const logs = await db().auditLog.findMany({
     where: {
       guildId,
       createdAt: { gte: sevenDaysAgo },
     },
     orderBy: { createdAt: 'desc' },
+    take: EXPORT_LIMIT,
   });
 
   if (logs.length === 0) {
@@ -276,5 +279,9 @@ async function exportAudit(interaction: ChatInputCommandInteraction): Promise<vo
     details: { count: logs.length },
   });
 
-  await interaction.reply({ files: [attachment], ephemeral: true });
+  const truncatedNote = logs.length === EXPORT_LIMIT
+    ? `\n> **Note :** Les resultats ont ete tronques a ${EXPORT_LIMIT} lignes.`
+    : '';
+
+  await interaction.reply({ content: truncatedNote || undefined, files: [attachment], ephemeral: true });
 }
