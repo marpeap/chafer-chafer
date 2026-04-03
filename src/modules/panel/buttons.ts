@@ -29,8 +29,6 @@ import {
   buildRoleSelectRows,
   buildFlagsEmbed,
   buildFlagsSelectRow,
-  buildOfficerPanelEmbed,
-  buildOfficerPanelRows,
   buildHistoriqueUserModal,
 } from './views.js';
 
@@ -152,10 +150,6 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
       return handleConfigRoles(interaction);
     case 'config_flags':
       return handleConfigFlags(interaction);
-
-    // ── Officer ──
-    case 'officer':
-      return handleOfficerPanel(interaction);
 
     default:
       log.warn({ action }, 'Unknown panel button');
@@ -569,23 +563,6 @@ async function handleConfigFlags(interaction: ButtonInteraction): Promise<void> 
     log.error({ err }, 'handleConfigFlags error');
     await interaction.reply({ embeds: [errorEmbed('Erreur lors du chargement des feature flags.')], ephemeral: true }).catch(() => {});
   }
-}
-
-async function handleOfficerPanel(interaction: ButtonInteraction): Promise<void> {
-  const member = interaction.member as GuildMember;
-  const level = await getMemberLevel(member);
-  if (!requireLevel(PermissionLevel.OFFICER, level)) {
-    await interaction.reply({
-      embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
-      ephemeral: true,
-    });
-    return;
-  }
-  await interaction.reply({
-    embeds: [buildOfficerPanelEmbed()],
-    components: buildOfficerPanelRows(),
-    ephemeral: true,
-  });
 }
 
 // ══════════════════════════════════

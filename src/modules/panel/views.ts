@@ -24,29 +24,29 @@ export function buildMainPanelEmbed(): EmbedBuilder {
     .addFields(
       {
         name: '💀 Adhésion & Profil',
-        value: 'Deviens Chafer, gère ton profil et tes infos.',
+        value: 'Rejoins la guilde, consulte ton profil et tes récompenses.',
         inline: false,
       },
       {
         name: `${Emoji.SWORD} Activités`,
-        value: 'Organise une sortie, lance un appel rapide.',
+        value: 'Crée une sortie, cherche un groupe ou consulte l\'agenda.',
         inline: false,
       },
       {
         name: `${Emoji.HAMMER} Métiers & Craft`,
-        value: 'Gère tes métiers, trouve un artisan, fais une demande de craft.',
+        value: 'Inscris tes métiers, trouve un artisan ou fais une demande de craft.',
         inline: false,
       },
       {
-        name: `${Emoji.SEARCH} Outils`,
-        value: 'Encyclopédie Dofus, almanax semaine, demandes forum.',
+        name: `${Emoji.BOOK} Outils & Infos`,
+        value: 'Almanax, encyclopédie Dofus et demandes forum.',
         inline: false,
       },
     );
 }
 
 export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
-  // Row 1 — Membership + Profile + Almanax
+  // Row 1 — Adhésion & Profil (personnel, calme)
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('panel:devenir_chafer')
@@ -59,18 +59,13 @@ export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
       .setEmoji('👤')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId('panel:almanax_today')
-      .setLabel('Almanax')
-      .setEmoji(Emoji.CALENDAR)
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('panel:almanax_bonus')
-      .setLabel('Bonus')
-      .setEmoji(Emoji.SEARCH)
-      .setStyle(ButtonStyle.Secondary),
+      .setCustomId('panel:recompense_liste')
+      .setLabel('Mes Récompenses')
+      .setEmoji(Emoji.COIN)
+      .setStyle(ButtonStyle.Primary),
   );
 
-  // Row 2 — Activities (kept as is)
+  // Row 2 — Activités (énergie, participation)
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('panel:sortie_creer')
@@ -87,49 +82,59 @@ export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {
       .setLabel('Sorties à venir')
       .setEmoji(Emoji.CLOCK)
       .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:glandeur_dispo')
+      .setLabel('Dispo glandeur')
+      .setEmoji('🚀')
+      .setStyle(ButtonStyle.Secondary),
   );
 
-  // Row 3 — Professions (5 buttons)
+  // Row 3 — Métiers & Craft (alternance bleu/gris)
   const row3 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('panel:metier_inscrire')
-      .setLabel('Métier')
+      .setLabel('Mon métier')
       .setEmoji(Emoji.HAMMER)
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel:metier_chercher')
-      .setLabel('Artisan')
+      .setLabel('Chercher artisan')
       .setEmoji(Emoji.SEARCH)
       .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel:craft_demande')
-      .setLabel('Craft')
+      .setLabel('Demande craft')
       .setEmoji('📦')
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel:metier_dispo')
-      .setLabel('Dispo')
+      .setLabel('Ma dispo')
       .setEmoji('💼')
       .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId('panel:glandeur_dispo')
-      .setLabel('Glandeur')
-      .setEmoji('🚀')
-      .setStyle(ButtonStyle.Success),
   );
 
-  // Row 4 — Encyclopedia + Forum + Almanax semaine
+  // Row 4 — Outils & Infos (exploration, lecture)
   const row4 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId('panel:dofus_chercher')
-      .setLabel('Chercher item')
-      .setEmoji(Emoji.SEARCH)
+      .setCustomId('panel:almanax_today')
+      .setLabel('Almanax')
+      .setEmoji(Emoji.CALENDAR)
       .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId('panel:almanax_bonus')
+      .setLabel('Bonus')
+      .setEmoji(Emoji.SEARCH)
+      .setStyle(ButtonStyle.Secondary),
     new ButtonBuilder()
       .setCustomId('panel:almanax_semaine')
       .setLabel('Semaine')
       .setEmoji(Emoji.CALENDAR)
       .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId('panel:dofus_chercher')
+      .setLabel('Encyclopédie')
+      .setEmoji(Emoji.BOOK)
+      .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId('panel:demande_creer')
       .setLabel('Forum')
