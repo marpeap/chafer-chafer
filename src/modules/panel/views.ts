@@ -42,7 +42,8 @@ export function buildMainPanelEmbed(): EmbedBuilder {
         value: 'Almanax, encyclopédie Dofus et demandes forum.',
         inline: false,
       },
-    );
+    )
+    .setFooter({ text: 'Chafer Chafer — Développé par Marpeap de chez Marpeap Digitals · marpeap.com' });
 }
 
 export function buildMainPanelRows(): ActionRowBuilder<ButtonBuilder>[] {

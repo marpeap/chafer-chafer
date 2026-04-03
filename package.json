@@ -2,6 +2,7 @@
   "name": "chafer-chafer",
   "version": "1.0.0",
   "description": "Bot Discord de guilde DOFUS — Chafer Chafer",
+  "author": "Marpeap <dev@marpeap.com> (https://marpeap.com)",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
