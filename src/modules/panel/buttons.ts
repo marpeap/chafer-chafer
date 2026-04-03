@@ -443,7 +443,7 @@ async function showDemandeModal(interaction: ButtonInteraction): Promise<void> {
       new ActionRowBuilder<TextInputBuilder>().addComponents(
         new TextInputBuilder()
           .setCustomId('tag')
-          .setLabel('Tag (aide/donjon/craft/koli/songes/question/guilde)')
+          .setLabel('Tag (aide/donjon/craft/koli/songes...)')
           .setPlaceholder('aide')
           .setStyle(TextInputStyle.Short)
           .setRequired(true)
