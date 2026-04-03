@@ -36,6 +36,18 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
   const dureeMaxStr = interaction.fields.getTextInputValue('duree_max')?.trim() || '';
   const descriptionRaw = interaction.fields.getTextInputValue('description')?.trim() || null;
 
+  // Parse optional reward (format: "titre | montant" or just "titre")
+  let rewardTitle: string | null = null;
+  let rewardAmount: string | null = null;
+  try {
+    const recompenseRaw = interaction.fields.getTextInputValue('recompense')?.trim() || '';
+    if (recompenseRaw) {
+      const rewardParts = recompenseRaw.split('|');
+      rewardTitle = rewardParts[0].trim() || null;
+      if (rewardParts.length >= 2) rewardAmount = rewardParts[1].trim() || null;
+    }
+  } catch { /* field may not exist in old modal format */ }
+
   // Parse role slots from the first line of description (e.g. "2 Tank, 2 Heal, 4 DPS")
   const { roleSlots, description } = parseRoleSlots(descriptionRaw);
 
@@ -140,6 +152,8 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
       scheduledAt,
       estimatedDuration,
       maxPlayers,
+      rewardTitle,
+      rewardAmount,
       status: 'published',
     },
   });

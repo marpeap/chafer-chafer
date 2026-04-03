@@ -186,11 +186,15 @@ model Activity {
   channelId       String?  @map("channel_id")
   eventId         String?  @map("event_id") // Discord scheduled event ID
   closedAt        DateTime? @map("closed_at")
+  rewardTitle     String?  @map("reward_title")
+  rewardAmount    String?  @map("reward_amount")
+  rewardsReleased Boolean  @default(false) @map("rewards_released")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
   signups    ActivitySignup[]
   reminders  ActivityReminder[]
+  rewards    Reward[]
 
   @@index([guildId, status])
   @@index([guildId, scheduledAt])
@@ -361,11 +365,13 @@ model Reward {
   status      String   @default("pending") // pending, claimable, claimed, paid, cancelled, disputed
   messageId   String?  @map("message_id")
   channelId   String?  @map("channel_id")
+  activityId  Int?     @map("activity_id")
   claimedAt   DateTime? @map("claimed_at")
   paidAt      DateTime? @map("paid_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  activity    Activity? @relation(fields: [activityId], references: [id])
   claims      RewardClaim[]
   ledgerEntries LedgerEntry[]
 

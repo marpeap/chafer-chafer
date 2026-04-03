@@ -30,6 +30,9 @@ export function buildRewardEmbed(reward: Reward): EmbedBuilder {
   if (reward.reason) {
     lines.push(`**Raison :** ${truncate(reward.reason, 512)}`);
   }
+  if (reward.activityId) {
+    lines.push(`**Sortie :** #${reward.activityId}`);
+  }
   lines.push(`**Creee par :** <@${reward.createdBy}>`);
   lines.push(`**Date :** ${discordTimestamp(reward.createdAt, 'F')}`);
 

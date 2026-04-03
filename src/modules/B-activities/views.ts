@@ -161,6 +161,9 @@ interface ActivityData {
   maxPlayers: number | null;
   createdBy: string;
   status: string;
+  rewardTitle?: string | null;
+  rewardAmount?: string | null;
+  rewardsReleased?: boolean;
 }
 
 interface SignupData {
@@ -219,6 +222,14 @@ export function buildActivityEmbed(
   }
 
   embed.addFields({ name: 'Organisateur', value: `<@${activity.createdBy}>`, inline: true });
+
+  if (activity.rewardTitle) {
+    const rewardStr = activity.rewardAmount
+      ? `${activity.rewardTitle} (${Emoji.COIN} ${activity.rewardAmount})`
+      : activity.rewardTitle;
+    const suffix = activity.rewardsReleased ? ` — ${Emoji.CHECK} Libérées` : '';
+    embed.addFields({ name: `${Emoji.TROPHY} Récompense`, value: `${rewardStr}${suffix}`, inline: true });
+  }
 
   if (activity.description) {
     embed.addFields({ name: 'Description', value: truncate(activity.description, 1024) });
@@ -332,6 +343,18 @@ export function buildActivityEmbed(
       );
     }
     components.push(roleRow);
+  }
+
+  // Release rewards button (officer-only, validated server-side)
+  if (activity.rewardTitle && !activity.rewardsReleased
+      && (activity.status === 'closed' || activity.status === 'ongoing')) {
+    components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`activity:release_rewards:${activity.id}`)
+        .setLabel('Libérer récompenses')
+        .setEmoji(Emoji.TROPHY)
+        .setStyle(ButtonStyle.Success),
+    ));
   }
 
   return { embeds: [embed], components };

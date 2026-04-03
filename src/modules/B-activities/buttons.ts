@@ -9,7 +9,8 @@ import {
 } from 'discord.js';
 import { db } from '../../core/database.js';
 import { childLogger } from '../../core/logger.js';
-import { errorEmbed, noPermissionEmbed } from '../../views/base.js';
+import { errorEmbed, successEmbed, noPermissionEmbed, Emoji } from '../../views/base.js';
+import { audit } from '../../core/audit.js';
 import { buildActivityEmbed, buildQuickCallEmbed, buildSearchCancelledEmbed } from './views.js';
 import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
 
@@ -26,6 +27,11 @@ export async function handleActivityButton(interaction: ButtonInteraction): Prom
   // Cancel search button: activity:cancel_search:{id}
   if (customId.startsWith('activity:cancel_search:')) {
     return handleCancelSearch(interaction);
+  }
+
+  // Release rewards button: activity:release_rewards:{id}
+  if (customId.startsWith('activity:release_rewards:')) {
+    return handleReleaseRewards(interaction);
   }
 
   if (customId.startsWith('activity:')) {
@@ -97,6 +103,15 @@ async function handleTypeSelect(interaction: ButtonInteraction): Promise<void> {
             .setStyle(TextInputStyle.Paragraph)
             .setRequired(false)
             .setMaxLength(1000),
+        ),
+        new ActionRowBuilder<TextInputBuilder>().addComponents(
+          new TextInputBuilder()
+            .setCustomId('recompense')
+            .setLabel('R\u00E9compense (optionnel)')
+            .setPlaceholder('Ex: Butin raid | 500k kamas')
+            .setStyle(TextInputStyle.Short)
+            .setRequired(false)
+            .setMaxLength(150),
         ),
       );
 
@@ -351,6 +366,134 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
       log.warn({ err, quickCallId }, 'Failed to update LFG embed');
     }
   }
+}
+
+// ────────────────── Release Rewards ──────────────────
+
+async function handleReleaseRewards(interaction: ButtonInteraction): Promise<void> {
+  const parts = interaction.customId.split(':');
+  // Format: activity:release_rewards:<id>
+  if (parts.length !== 3) return;
+
+  const activityId = parseInt(parts[2], 10);
+  if (isNaN(activityId)) return;
+
+  // OFFICER permission check
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({
+      embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const guildId = interaction.guildId!;
+
+  const activity = await db().activity.findFirst({
+    where: { id: activityId, guildId },
+    include: { signups: true },
+  });
+
+  if (!activity) {
+    await interaction.followUp({ embeds: [errorEmbed('Sortie introuvable.')], ephemeral: true });
+    return;
+  }
+
+  if (!activity.rewardTitle) {
+    await interaction.followUp({ embeds: [errorEmbed('Cette sortie n\'a pas de récompense associée.')], ephemeral: true });
+    return;
+  }
+
+  if (activity.rewardsReleased) {
+    await interaction.followUp({ embeds: [errorEmbed('Les récompenses ont déjà été libérées pour cette sortie.')], ephemeral: true });
+    return;
+  }
+
+  const confirmedSignups = activity.signups.filter((s) => s.status === 'confirmed');
+
+  if (confirmedSignups.length === 0) {
+    await interaction.followUp({ embeds: [errorEmbed('Aucun participant confirmé pour cette sortie.')], ephemeral: true });
+    return;
+  }
+
+  // Create rewards in transaction (prevents double-release)
+  await db().$transaction(async (tx) => {
+    await tx.activity.update({
+      where: { id: activityId },
+      data: { rewardsReleased: true },
+    });
+
+    for (const signup of confirmedSignups) {
+      const reward = await tx.reward.create({
+        data: {
+          guildId,
+          createdBy: interaction.user.id,
+          recipientId: signup.userId,
+          title: activity.rewardTitle!,
+          amount: activity.rewardAmount,
+          reason: `Participation à la sortie : ${activity.title}`,
+          status: 'claimable',
+          activityId,
+        },
+      });
+
+      await tx.ledgerEntry.create({
+        data: {
+          guildId,
+          rewardId: reward.id,
+          actorId: interaction.user.id,
+          action: 'created',
+          fromStatus: null,
+          toStatus: 'claimable',
+          note: `Auto-créé depuis la sortie #${activityId}`,
+        },
+      });
+    }
+  });
+
+  await audit({
+    guildId,
+    actorId: interaction.user.id,
+    action: 'activity.release_rewards',
+    targetType: 'activity',
+    targetId: String(activityId),
+    details: {
+      title: activity.title,
+      rewardTitle: activity.rewardTitle,
+      rewardAmount: activity.rewardAmount,
+      participantCount: confirmedSignups.length,
+    },
+  });
+
+  // Refresh embed (removes release button)
+  const updated = await db().activity.findFirst({
+    where: { id: activityId, guildId },
+    include: { signups: true },
+  });
+
+  if (updated) {
+    const card = buildActivityEmbed(updated, updated.signups);
+    try {
+      await interaction.editReply({ embeds: card.embeds, components: card.components });
+    } catch (err) {
+      log.warn({ err, activityId }, 'Failed to update activity embed after reward release');
+    }
+  }
+
+  await interaction.followUp({
+    embeds: [successEmbed(
+      `${Emoji.TROPHY} **${confirmedSignups.length}** récompenses libérées pour **${activity.title}** !\n` +
+      `Chaque participant confirmé recevra : **${activity.rewardTitle}**` +
+      (activity.rewardAmount ? ` (${activity.rewardAmount})` : '') +
+      `.\nLes récompenses sont réclamables depuis \`/recompense liste\`.`,
+    )],
+  });
+
+  log.info({ activityId, guildId, rewardCount: confirmedSignups.length }, 'Rewards released for activity');
 }
 
 async function handleCancelSearch(interaction: ButtonInteraction): Promise<void> {
