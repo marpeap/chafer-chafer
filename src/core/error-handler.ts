@@ -14,13 +14,12 @@ export async function handleInteractionError(
   interaction: AnyInteraction,
   err: unknown,
 ): Promise<void> {
-  const errorMessage = err instanceof Error ? err.message : 'Erreur inconnue';
   log.error({ err, user: interaction.user.id, type: interaction.type }, 'Interaction error');
 
   const embed = new EmbedBuilder()
     .setColor(Colors.ERROR)
     .setTitle('Erreur')
-    .setDescription(errorMessage.slice(0, 200))
+    .setDescription('Une erreur interne est survenue.')
     .setTimestamp();
 
   try {

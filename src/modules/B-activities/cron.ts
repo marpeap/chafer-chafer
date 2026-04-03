@@ -137,7 +137,7 @@ async function handleExpireLfg(): Promise<void> {
 
   const expiredCalls = await db().quickCall.findMany({
     where: {
-      status: 'open',
+      status: { in: ['open', 'filled'] },
       expiresAt: { lte: now },
     },
     include: { responses: true },

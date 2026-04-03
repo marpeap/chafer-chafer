@@ -1,4 +1,5 @@
 import { ModalSubmitInteraction, TextChannel } from 'discord.js';
+import { Prisma } from '@prisma/client';
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
@@ -36,6 +37,21 @@ export async function findOrCreateMatch(params: MatchParams): Promise<void> {
   try {
     // Use a transaction to avoid race conditions
     const result = await db().$transaction(async (tx) => {
+      // Check if user already has an active search for this guild + activityType
+      const existingUserSearch = await tx.searchQueue.findFirst({
+        where: {
+          guildId,
+          userId,
+          activityType,
+          matched: false,
+          expiresAt: { gt: now },
+        },
+      });
+
+      if (existingUserSearch) {
+        return { type: 'duplicate' as const };
+      }
+
       // 1. Find existing unmatched searches for same guild + activityType
       const existingSearches = await tx.searchQueue.findMany({
         where: {
@@ -169,73 +185,91 @@ export async function findOrCreateMatch(params: MatchParams): Promise<void> {
           existingSearches,
         };
       }
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+    // Handle duplicate search early return
+    if (result.type === 'duplicate') {
+      await interaction.editReply({
+        content: 'Tu as deja une recherche en cours pour ce type.',
+      });
+      return;
+    }
 
     // Outside the transaction: send Discord messages
     if (result.type === 'matched') {
       const { quickCall, matchedUserIds } = result;
 
-      // Build and send the match found notification
-      const mentions = matchedUserIds.map((id) => `<@${id}>`).join(' ');
-      const matchEmbed = buildMatchFoundEmbed(activityType, matchedUserIds);
+      try {
+        // Build and send the match found notification
+        const mentions = matchedUserIds.map((id) => `<@${id}>`).join(' ');
+        const matchEmbed = buildMatchFoundEmbed(activityType, matchedUserIds);
 
-      await channel.send({
-        content: `${mentions} Un groupe **${activityType}** a été trouvé !`,
-        embeds: [matchEmbed],
-      });
+        await channel.send({
+          content: `${mentions} Un groupe **${activityType}** a été trouvé !`,
+          embeds: [matchEmbed],
+        });
 
-      // Send the QuickCall embed
-      const responses = matchedUserIds.map((uid) => ({
-        userId: uid,
-        status: uid === userId ? 'lead' : 'partant',
-      }));
-      const card = buildQuickCallEmbed(quickCall, responses);
-      const sentMessage = await channel.send({
-        embeds: card.embeds,
-        components: card.components,
-      });
+        // Send the QuickCall embed
+        const responses = matchedUserIds.map((uid) => ({
+          userId: uid,
+          status: uid === userId ? 'lead' : 'partant',
+        }));
+        const card = buildQuickCallEmbed(quickCall, responses);
+        const sentMessage = await channel.send({
+          embeds: card.embeds,
+          components: card.components,
+        });
 
-      // Update QuickCall with message reference
-      await db().quickCall.update({
-        where: { id: quickCall.id },
-        data: {
-          messageId: sentMessage.id,
-          channelId: channel.id,
-        },
-      });
+        // Update QuickCall with message reference
+        await db().quickCall.update({
+          where: { id: quickCall.id },
+          data: {
+            messageId: sentMessage.id,
+            channelId: channel.id,
+          },
+        });
 
-      // Track message mapping
-      await db().discordMessageMap.create({
-        data: {
+        // Track message mapping
+        await db().discordMessageMap.create({
+          data: {
+            guildId,
+            channelId: channel.id,
+            messageId: sentMessage.id,
+            entityType: 'quick_call',
+            entityId: quickCall.id,
+          },
+        });
+
+        await audit({
           guildId,
-          channelId: channel.id,
-          messageId: sentMessage.id,
-          entityType: 'quick_call',
-          entityId: quickCall.id,
-        },
-      });
+          actorId: userId,
+          action: 'lfg.match',
+          targetType: 'quick_call',
+          targetId: String(quickCall.id),
+          details: {
+            type: activityType,
+            playersNeeded,
+            matchedPlayers: matchedUserIds.length,
+          },
+        });
 
-      await audit({
-        guildId,
-        actorId: userId,
-        action: 'lfg.match',
-        targetType: 'quick_call',
-        targetId: String(quickCall.id),
-        details: {
-          type: activityType,
-          playersNeeded,
-          matchedPlayers: matchedUserIds.length,
-        },
-      });
+        await interaction.editReply({
+          embeds: [matchEmbed],
+        });
 
-      await interaction.editReply({
-        embeds: [matchEmbed],
-      });
-
-      log.info(
-        { guildId, quickCallId: quickCall.id, matchedCount: matchedUserIds.length },
-        'LFG match found',
-      );
+        log.info(
+          { guildId, quickCallId: quickCall.id, matchedCount: matchedUserIds.length },
+          'LFG match found',
+        );
+      } catch (sendErr) {
+        // Transaction succeeded but Discord message failed — do NOT re-throw
+        log.error({ err: sendErr, guildId, quickCallId: quickCall.id }, 'Match found but failed to send Discord message');
+        try {
+          await interaction.editReply({
+            content: 'Un groupe a ete cree mais l\'envoi du message dans le salon a echoue. Contactez un officier.',
+          });
+        } catch { /* interaction may have expired */ }
+      }
     } else {
       // Queued — send search embed
       const { searchEntry, otherSearchers, existingSearches } = result;

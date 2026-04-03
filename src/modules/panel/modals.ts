@@ -97,6 +97,7 @@ async function handleMetierChercher(interaction: ModalSubmitInteraction): Promis
   const glandeurs = await db().playerProfile.findMany({
     where: {
       guildId,
+      status: 'approved',
       globalAvailable: true,
       professions200: { contains: profession, mode: 'insensitive' },
     },

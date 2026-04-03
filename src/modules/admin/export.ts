@@ -55,9 +55,12 @@ export async function handleExport(interaction: ChatInputCommandInteraction): Pr
 async function exportMembres(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
 
+  const EXPORT_LIMIT = 5000;
+
   const members = await db().playerProfile.findMany({
     where: { guildId, status: 'approved' },
     orderBy: { createdAt: 'asc' },
+    take: EXPORT_LIMIT,
   });
 
   if (members.length === 0) {
@@ -97,7 +100,11 @@ async function exportMembres(interaction: ChatInputCommandInteraction): Promise<
     details: { count: members.length },
   });
 
-  await interaction.reply({ files: [attachment], ephemeral: true });
+  const truncatedNote = members.length === EXPORT_LIMIT
+    ? `\n> **Note :** Les resultats ont ete tronques a ${EXPORT_LIMIT} lignes.`
+    : '';
+
+  await interaction.reply({ content: truncatedNote || undefined, files: [attachment], ephemeral: true });
 }
 
 // ────────────────── /export activites ──────────────────
@@ -108,6 +115,8 @@ async function exportActivites(interaction: ChatInputCommandInteraction): Promis
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+  const EXPORT_LIMIT = 5000;
+
   const activities = await db().activity.findMany({
     where: {
       guildId,
@@ -115,6 +124,7 @@ async function exportActivites(interaction: ChatInputCommandInteraction): Promis
     },
     include: { signups: true },
     orderBy: { scheduledAt: 'desc' },
+    take: EXPORT_LIMIT,
   });
 
   if (activities.length === 0) {
@@ -154,7 +164,11 @@ async function exportActivites(interaction: ChatInputCommandInteraction): Promis
     details: { count: activities.length },
   });
 
-  await interaction.reply({ files: [attachment], ephemeral: true });
+  const truncatedNote = activities.length === EXPORT_LIMIT
+    ? `\n> **Note :** Les resultats ont ete tronques a ${EXPORT_LIMIT} lignes.`
+    : '';
+
+  await interaction.reply({ content: truncatedNote || undefined, files: [attachment], ephemeral: true });
 }
 
 // ────────────────── /export recompenses ──────────────────
@@ -162,9 +176,12 @@ async function exportActivites(interaction: ChatInputCommandInteraction): Promis
 async function exportRecompenses(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
 
+  const EXPORT_LIMIT = 5000;
+
   const rewards = await db().reward.findMany({
     where: { guildId },
     orderBy: { createdAt: 'desc' },
+    take: EXPORT_LIMIT,
   });
 
   if (rewards.length === 0) {
@@ -203,7 +220,11 @@ async function exportRecompenses(interaction: ChatInputCommandInteraction): Prom
     details: { count: rewards.length },
   });
 
-  await interaction.reply({ files: [attachment], ephemeral: true });
+  const truncatedNote = rewards.length === EXPORT_LIMIT
+    ? `\n> **Note :** Les resultats ont ete tronques a ${EXPORT_LIMIT} lignes.`
+    : '';
+
+  await interaction.reply({ content: truncatedNote || undefined, files: [attachment], ephemeral: true });
 }
 
 // ────────────────── /export audit ──────────────────

@@ -202,7 +202,22 @@ async function handleActivitySignup(interaction: ButtonInteraction): Promise<voi
 
   // Check if user already has this exact status + role (toggle off)
   const existing = activity.signups.find((s) => s.userId === interaction.user.id);
-  if (existing && existing.status === signupStatus && existing.role === roleToSet) {
+  const isToggleOff = existing && existing.status === signupStatus && existing.role === roleToSet;
+
+  // Enforce maxPlayers when user is trying to confirm (not toggle off)
+  if (!isToggleOff && (signupStatus === 'confirmed') && activity.maxPlayers) {
+    const confirmedCount = activity.signups.filter((s) => s.status === 'confirmed').length;
+    const alreadyConfirmed = existing?.status === 'confirmed';
+    if (!alreadyConfirmed && confirmedCount >= activity.maxPlayers) {
+      await interaction.followUp({
+        embeds: [errorEmbed(`La sortie est complete (${confirmedCount}/${activity.maxPlayers}).`)],
+        ephemeral: true,
+      });
+      return;
+    }
+  }
+
+  if (isToggleOff) {
     // Remove signup (toggle)
     await db().activitySignup.delete({ where: { id: existing.id } });
   } else {

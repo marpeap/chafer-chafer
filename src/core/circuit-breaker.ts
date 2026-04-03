@@ -84,6 +84,34 @@ export class CircuitBreaker {
     }
   }
 
+  /** Manually record a success (for use outside execute()) */
+  recordSuccess(): void {
+    this.onSuccess();
+  }
+
+  /** Manually record a failure (for use outside execute()) */
+  recordFailure(): void {
+    this.onFailure();
+  }
+
+  /** Throws CircuitOpenError if circuit is OPEN and hasn't timed out yet */
+  throwIfOpen(): void {
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.lastFailureTime >= this.resetTimeoutMs) {
+        this.state = 'HALF_OPEN';
+        this.halfOpenCalls = 0;
+        this.halfOpenSuccesses = 0;
+        log.info({ breaker: this.name }, 'Circuit breaker HALF_OPEN');
+      } else {
+        throw new CircuitOpenError(this.name);
+      }
+    }
+    if (this.state === 'HALF_OPEN' && this.halfOpenCalls >= this.halfOpenMaxCalls) {
+      throw new CircuitOpenError(this.name);
+    }
+    if (this.state === 'HALF_OPEN') this.halfOpenCalls++;
+  }
+
   getState(): State {
     return this.state;
   }

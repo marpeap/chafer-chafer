@@ -12,7 +12,7 @@ const CHANNEL_FIELDS = [
   { option: 'metiers', dbField: 'metiersChannelId' },
   { option: 'forum', dbField: 'forumChannelId' },
   { option: 'logs', dbField: 'logChannelId' },
-  { option: 'officers', dbField: 'officersChannelId' },
+  { option: 'officiers', dbField: 'officersChannelId' },
   { option: 'annonces', dbField: 'annoncesChannelId' },
 ] as const;
 
@@ -60,9 +60,9 @@ export async function handleConfigSalons(interaction: ChatInputCommandInteractio
 
 const ROLE_FIELDS = [
   { option: 'admin', dbField: 'adminRoleId' },
-  { option: 'officer', dbField: 'officerRoleId' },
+  { option: 'officier', dbField: 'officerRoleId' },
   { option: 'veteran', dbField: 'veteranRoleId' },
-  { option: 'member', dbField: 'memberRoleId' },
+  { option: 'membre', dbField: 'memberRoleId' },
 ] as const;
 
 export async function handleConfigRoles(interaction: ChatInputCommandInteraction): Promise<void> {

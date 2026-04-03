@@ -165,10 +165,21 @@ async function handleSortieCreerModal(interaction: ModalSubmitInteraction): Prom
 
   // Send the card to the sorties channel
   const card = buildActivityEmbed(activity, []);
-  const sentMessage = await channel.send({
-    embeds: card.embeds,
-    components: card.components,
-  });
+  let sentMessage;
+  try {
+    sentMessage = await channel.send({
+      embeds: card.embeds,
+      components: card.components,
+    });
+  } catch (err) {
+    log.error({ err, activityId: activity.id }, 'Failed to send activity card — deleting orphan');
+    await db().activityReminder.deleteMany({ where: { activityId: activity.id } });
+    await db().activity.delete({ where: { id: activity.id } });
+    await interaction.editReply({
+      embeds: [errorEmbed('Impossible d\'envoyer le message dans le salon #sorties. La sortie n\'a pas été créée.')],
+    });
+    return;
+  }
 
   // Update activity with message reference
   await db().activity.update({
@@ -319,10 +330,20 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
 
   // Send the card
   const card = buildQuickCallEmbed(quickCall, []);
-  const sentMessage = await channel.send({
-    embeds: card.embeds,
-    components: card.components,
-  });
+  let sentMessage;
+  try {
+    sentMessage = await channel.send({
+      embeds: card.embeds,
+      components: card.components,
+    });
+  } catch (err) {
+    log.error({ err, quickCallId: quickCall.id }, 'Failed to send LFG card — deleting orphan');
+    await db().quickCall.delete({ where: { id: quickCall.id } });
+    await interaction.editReply({
+      embeds: [errorEmbed('Impossible d\'envoyer le message dans le salon #sorties. Le LFG n\'a pas été créé.')],
+    });
+    return;
+  }
 
   // Update with message reference
   await db().quickCall.update({

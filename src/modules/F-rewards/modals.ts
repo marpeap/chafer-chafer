@@ -1,8 +1,9 @@
-import { ModalSubmitInteraction, TextChannel } from 'discord.js';
+import { ModalSubmitInteraction, TextChannel, GuildMember } from 'discord.js';
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
-import { errorEmbed, successEmbed } from '../../views/base.js';
+import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
+import { errorEmbed, successEmbed, noPermissionEmbed } from '../../views/base.js';
 import { buildRewardCard } from './views.js';
 
 const log = childLogger('F-rewards:modals');
@@ -25,6 +26,13 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
 
   const guildId = interaction.guildId;
   if (!guildId) return;
+
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({ embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))], ephemeral: true });
+    return;
+  }
 
   await interaction.deferReply();
 

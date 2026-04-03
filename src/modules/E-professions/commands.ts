@@ -123,6 +123,7 @@ async function metierChercher(interaction: ChatInputCommandInteraction): Promise
   const glandeurs = await db().playerProfile.findMany({
     where: {
       guildId,
+      status: 'approved',
       globalAvailable: true,
       professions200: { contains: profession, mode: 'insensitive' },
     },
@@ -178,7 +179,7 @@ async function metierDispo(interaction: ChatInputCommandInteraction): Promise<vo
     where: { guildId_userId: { guildId, userId } },
   });
 
-  const newAvailable = existing ? !existing.available : false;
+  const newAvailable = existing ? !existing.available : true;
 
   await db().crafterAvailability.upsert({
     where: { guildId_userId: { guildId, userId } },
@@ -190,6 +191,12 @@ async function metierDispo(interaction: ChatInputCommandInteraction): Promise<vo
   await db().professionProfile.updateMany({
     where: { guildId, userId },
     data: { available: newAvailable },
+  });
+
+  // Sync PlayerProfile.globalAvailable
+  await db().playerProfile.updateMany({
+    where: { guildId, userId },
+    data: { globalAvailable: newAvailable },
   });
 
   const statusText = newAvailable ? 'disponible' : 'indisponible';
@@ -304,9 +311,19 @@ async function craftPrendre(interaction: ChatInputCommandInteraction): Promise<v
     return;
   }
 
-  const updated = await db().craftRequest.update({
-    where: { id },
+  // Atomic update with status guard to prevent race condition (TOCTOU)
+  const updateResult = await db().craftRequest.updateMany({
+    where: { id, status: 'open' },
     data: { crafterId: userId, status: 'taken' },
+  });
+
+  if (updateResult.count === 0) {
+    await interaction.reply({ embeds: [errorEmbed('Cette demande a déjà été prise par quelqu\'un d\'autre.')], ephemeral: true });
+    return;
+  }
+
+  const updated = await db().craftRequest.findUniqueOrThrow({
+    where: { id },
   });
 
   const embed = buildCraftRequestEmbed(updated);

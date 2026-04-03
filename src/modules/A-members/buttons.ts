@@ -324,6 +324,14 @@ async function handleGlandeurDispo(interaction: ButtonInteraction): Promise<void
     return;
   }
 
+  if (profile.status !== 'approved') {
+    await interaction.reply({
+      embeds: [errorEmbed('Ton profil doit \u00eatre valid\u00e9 pour utiliser cette fonctionnalit\u00e9.')],
+      ephemeral: true,
+    });
+    return;
+  }
+
   const newAvailable = !profile.globalAvailable;
 
   await db().playerProfile.update({

@@ -10,34 +10,46 @@ const PREFIX = `/dofus3/v1/${LANG}`;
 const breaker = new CircuitBreaker({ name: 'almanax', failureThreshold: 3, resetTimeoutMs: 60_000 });
 
 async function fetchApi<T>(path: string, timeout = 8000): Promise<T> {
-  return breaker.execute(async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeout);
+  // Check circuit breaker BEFORE making the request
+  breaker.throwIfOpen();
 
-    try {
-      const res = await fetch(`${BASE_URL}${path}`, {
-        signal: controller.signal,
-        headers: { 'Accept': 'application/json' },
-      });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
 
-      if (res.status === 404) {
-        throw new Error(`Not found: ${path}`);
-      }
-      if (!res.ok) {
-        throw new Error(`Almanax API ${res.status}: ${path}`);
-      }
+  try {
+    const res = await fetch(`${BASE_URL}${path}`, {
+      signal: controller.signal,
+      headers: { 'Accept': 'application/json' },
+    });
 
-      let data: T;
-      try {
-        data = (await res.json()) as T;
-      } catch (parseErr) {
-        throw new Error(`API JSON parse error: ${path}`);
-      }
-      return data;
-    } finally {
-      clearTimeout(timer);
+    // 404 is a valid response (date/bonus not found), NOT an API failure — don't trip circuit breaker
+    if (res.status === 404) {
+      throw new Error(`Not found: ${path}`);
     }
-  });
+
+    if (!res.ok) {
+      breaker.recordFailure();
+      throw new Error(`Almanax API ${res.status}: ${path}`);
+    }
+
+    let data: T;
+    try {
+      data = (await res.json()) as T;
+    } catch (parseErr) {
+      throw new Error(`API JSON parse error: ${path}`);
+    }
+
+    breaker.recordSuccess();
+    return data;
+  } catch (err) {
+    // Network errors / timeouts DO trip the circuit breaker
+    if (err instanceof Error && !err.message.startsWith('Not found:') && !err.message.startsWith('Almanax API') && !err.message.startsWith('API JSON parse')) {
+      breaker.recordFailure();
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ══════════════════════════════════════════

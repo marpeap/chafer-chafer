@@ -249,6 +249,12 @@ async function handleMetierDispo(interaction: ButtonInteraction): Promise<void> 
       data: { available: newAvailable },
     });
 
+    // Sync PlayerProfile.globalAvailable
+    await db().playerProfile.updateMany({
+      where: { guildId, userId },
+      data: { globalAvailable: newAvailable },
+    });
+
     const status = newAvailable ? 'disponible' : 'indisponible';
     await interaction.editReply({
       embeds: [successEmbed(`Tu es maintenant marqué comme **${status}** pour tes métiers.`)],

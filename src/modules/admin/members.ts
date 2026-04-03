@@ -11,6 +11,7 @@ import {
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
+import { getMemberLevel, requireLevel, PermissionLevel } from '../../core/permissions.js';
 import { baseEmbed, errorEmbed, successEmbed, Colors, Emoji, truncate, discordTimestamp } from '../../views/base.js';
 import { buildProfileEmbed } from '../A-members/views.js';
 
@@ -395,6 +396,13 @@ export async function handleAdminMemberButton(interaction: ButtonInteraction): P
 
   // admin:membres_page:N
   if (customId.startsWith('admin:membres_page:')) {
+    const member = interaction.member as GuildMember;
+    const level = await getMemberLevel(member);
+    if (!requireLevel(PermissionLevel.OFFICER, level)) {
+      await interaction.deferUpdate();
+      return;
+    }
+
     const page = parseInt(customId.split(':')[2], 10);
     if (isNaN(page) || page < 0) return;
     await interaction.deferUpdate();

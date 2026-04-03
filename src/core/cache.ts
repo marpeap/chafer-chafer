@@ -3,24 +3,48 @@ import { childLogger } from './logger.js';
 
 const log = childLogger('cache');
 
+/** Envelope wrapper to distinguish null values from cache misses. */
+interface CacheEnvelope<T> {
+  v: T;
+}
+
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  const raw = await redis().get(key);
-  if (!raw) return null;
   try {
-    return JSON.parse(raw) as T;
-  } catch {
-    log.warn({ key }, 'Cache parse error, deleting key');
-    await redis().del(key);
+    const raw = await redis().get(key);
+    if (!raw) return null;
+    try {
+      const envelope = JSON.parse(raw) as CacheEnvelope<T>;
+      if (envelope && typeof envelope === 'object' && 'v' in envelope) {
+        return envelope.v;
+      }
+      // Legacy value without envelope — return as-is
+      return envelope as unknown as T;
+    } catch {
+      log.warn({ key }, 'Cache parse error, deleting key');
+      await redis().del(key).catch(() => {});
+      return null;
+    }
+  } catch (err) {
+    log.warn({ err, key }, 'Redis GET failed, treating as cache miss');
     return null;
   }
 }
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-  await redis().set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  try {
+    const envelope: CacheEnvelope<unknown> = { v: value };
+    await redis().set(key, JSON.stringify(envelope), 'EX', ttlSeconds);
+  } catch (err) {
+    log.warn({ err, key }, 'Redis SET failed, skipping cache write');
+  }
 }
 
 export async function cacheDel(key: string): Promise<void> {
-  await redis().del(key);
+  try {
+    await redis().del(key);
+  } catch (err) {
+    log.warn({ err, key }, 'Redis DEL failed, skipping cache delete');
+  }
 }
 
 export async function cacheGetOrFetch<T>(

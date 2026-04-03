@@ -26,48 +26,62 @@ export function registerJob(job: ScheduledJob): void {
       const dedupKey = `${job.name}:${startedAt.toISOString().slice(0, 13)}`; // hourly dedup
 
       try {
-        // Atomic dedup check + job execution in a transaction
-        await db().$transaction(async (tx) => {
+        // Step 1: Atomic dedup check + create "running" record inside a short transaction
+        const shouldRun = await db().$transaction(async (tx) => {
           const existing = await tx.jobRun.findFirst({
-            where: { jobName: job.name, dedupKey, status: 'success' },
+            where: { jobName: job.name, dedupKey, status: { in: ['success', 'running'] } },
           });
           if (existing) {
-            log.info({ job: job.name, dedupKey }, 'Job already ran successfully, skipping');
-            return;
+            log.info({ job: job.name, dedupKey }, 'Job already ran or is running, skipping');
+            return false;
           }
-
-          log.info({ job: job.name }, 'Job starting');
-          await job.handler();
-          const durationMs = Date.now() - startedAt.getTime();
 
           await tx.jobRun.create({
             data: {
               jobName: job.name,
               dedupKey,
-              status: 'success',
+              status: 'running',
               startedAt,
               finishedAt: new Date(),
-              durationMs,
+              durationMs: 0,
             },
           });
 
-          log.info({ job: job.name, durationMs }, 'Job completed');
+          return true;
         });
+
+        if (!shouldRun) return;
+
+        // Step 2: Run the job handler OUTSIDE the transaction
+        log.info({ job: job.name }, 'Job starting');
+        await job.handler();
+        const durationMs = Date.now() - startedAt.getTime();
+
+        // Step 3: Update the JobRun record with success status
+        await db().jobRun.updateMany({
+          where: { jobName: job.name, dedupKey, status: 'running' },
+          data: {
+            status: 'success',
+            finishedAt: new Date(),
+            durationMs,
+          },
+        });
+
+        log.info({ job: job.name, durationMs }, 'Job completed');
       } catch (err) {
         const durationMs = Date.now() - startedAt.getTime();
         log.error({ job: job.name, err }, 'Job failed');
 
-        await db().jobRun.create({
+        // Step 3 (failure): Update the JobRun record with failure status
+        await db().jobRun.updateMany({
+          where: { jobName: job.name, dedupKey, status: 'running' },
           data: {
-            jobName: job.name,
-            dedupKey,
             status: 'failure',
-            startedAt,
             finishedAt: new Date(),
             durationMs,
             error: err instanceof Error ? err.message : String(err),
           },
-        }).catch((err) => { log.error({ err, job: job.name }, 'Failed to log job failure'); });
+        }).catch((updateErr) => { log.error({ err: updateErr, job: job.name }, 'Failed to log job failure'); });
       }
     },
     {
