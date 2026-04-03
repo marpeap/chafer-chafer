@@ -13,6 +13,8 @@ import { successEmbed, errorEmbed } from '../../views/base.js';
 import {
   buildProfessionListEmbed,
   buildCrafterSearchEmbed,
+  buildCrafterAvailableEmbed,
+  buildCrafterUnavailableEmbed,
   buildCraftRequestEmbed,
   buildCraftRequestRow,
 } from './views.js';
@@ -106,17 +108,63 @@ async function metierInscrire(interaction: ChatInputCommandInteraction): Promise
 
 async function metierChercher(interaction: ChatInputCommandInteraction): Promise<void> {
   const profession = interaction.options.getString('profession', true);
+  const guildId = interaction.guildId!;
 
-  const crafters = await db().professionProfile.findMany({
+  // 1. Find ALL crafters with this profession
+  const allCrafters = await db().professionProfile.findMany({
     where: {
-      guildId: interaction.guildId!,
+      guildId,
       profession: { equals: profession, mode: 'insensitive' },
     },
-    orderBy: [{ available: 'desc' }, { level: 'desc' }],
+    orderBy: { level: 'desc' },
   });
 
-  const embed = buildCrafterSearchEmbed(crafters, profession);
-  await interaction.reply({ embeds: [embed] });
+  // 2. Find "Glandeur Dispo" players who listed this profession in their profile
+  const glandeurs = await db().playerProfile.findMany({
+    where: {
+      guildId,
+      globalAvailable: true,
+      professions200: { contains: profession, mode: 'insensitive' },
+    },
+  });
+
+  // 3. Build set of available user IDs (profession available OR globally available)
+  const availableUserIds = new Set<string>();
+  for (const c of allCrafters) {
+    if (c.available) availableUserIds.add(c.userId);
+  }
+  for (const g of glandeurs) {
+    availableUserIds.add(g.userId);
+  }
+
+  // 4. Split into available vs unavailable
+  const availableProfiles = allCrafters.filter((c) => availableUserIds.has(c.userId));
+
+  // Also include glandeurs who don't have a ProfessionProfile entry (level 200 assumed)
+  const existingUserIds = new Set(allCrafters.map((c) => c.userId));
+  for (const g of glandeurs) {
+    if (!existingUserIds.has(g.userId)) {
+      availableProfiles.push({
+        userId: g.userId,
+        level: 200,
+        note: 'Glandeur Dispo',
+      } as typeof allCrafters[number]);
+    }
+  }
+
+  if (availableProfiles.length > 0) {
+    // Case 1: Available crafters found — GREEN embed + ping
+    const mentions = availableProfiles.map((p) => `<@${p.userId}>`).join(' ');
+    const embed = buildCrafterAvailableEmbed(availableProfiles, profession);
+    await interaction.reply({
+      content: `${mentions} — on cherche un **${profession}** !`,
+      embeds: [embed],
+    });
+  } else {
+    // Case 2: No available crafters — ORANGE embed, no ping
+    const embed = buildCrafterUnavailableEmbed(allCrafters, profession);
+    await interaction.reply({ embeds: [embed] });
+  }
 }
 
 // ── /metier dispo ──

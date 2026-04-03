@@ -42,6 +42,13 @@ async function boot(): Promise<void> {
     log.warn({ err }, 'Failed to register activity crons');
   }
 
+  try {
+    const { registerMemberCrons } = await import('./modules/A-members/cron.js');
+    registerMemberCrons();
+  } catch (err) {
+    log.warn({ err }, 'Failed to register member crons');
+  }
+
   startAllJobs();
   log.info('Cron jobs started');
 

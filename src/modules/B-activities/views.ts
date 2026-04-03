@@ -446,6 +446,63 @@ export function buildQuickCallEmbed(
   return { embeds: [embed], components: [row] };
 }
 
+// ==================== Smart Matching Embeds ====================
+
+const ACTIVITY_TYPE_LABELS_LOWER: Record<string, string> = ACTIVITY_TYPE_LABELS;
+
+export function buildMatchFoundEmbed(
+  activityType: string,
+  matchedUserIds: string[],
+): EmbedBuilder {
+  const typeLabel = ACTIVITY_TYPE_LABELS_LOWER[activityType] ?? activityType;
+  const playerList = matchedUserIds.map((id) => `${Emoji.CHECK} <@${id}>`).join('\n');
+
+  return baseEmbed(`${Emoji.TROPHY} Groupe trouv\u00E9 !`, Colors.SUCCESS)
+    .setDescription(
+      `Un groupe **${typeLabel}** s'est form\u00E9 ! **${matchedUserIds.length}** joueurs pr\u00EAts.`,
+    )
+    .addFields({
+      name: `${Emoji.PEOPLE} Joueurs`,
+      value: truncate(playerList, 1024),
+    });
+}
+
+export function buildSearchQueueEmbed(
+  activityType: string,
+  otherSearchers: number,
+  expiresAt: Date,
+  searchId: number,
+): { embeds: EmbedBuilder[]; components: ActionRowBuilder<ButtonBuilder>[] } {
+  const typeLabel = ACTIVITY_TYPE_LABELS_LOWER[activityType] ?? activityType;
+
+  const othersText = otherSearchers > 0
+    ? `**${otherSearchers}** autre(s) joueur(s) cherchent aussi.`
+    : 'Tu es le premier \u00E0 chercher ce type.';
+
+  const embed = baseEmbed(`${Emoji.SEARCH} Recherche en cours`, Colors.INFO)
+    .setDescription(
+      `Tu cherches un groupe **${typeLabel}**. ${othersText}\n\n` +
+      `${Emoji.CLOCK} Expire ${discordTimestamp(expiresAt, 'R')}`,
+    );
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`activity:cancel_search:${searchId}`)
+      .setLabel('Annuler la recherche')
+      .setEmoji(Emoji.CROSS)
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  return { embeds: [embed], components: [row] };
+}
+
+export function buildSearchCancelledEmbed(): EmbedBuilder {
+  return baseEmbed(`${Emoji.CROSS} Recherche annul\u00E9e`, Colors.NEUTRAL)
+    .setDescription('Ta recherche de groupe a \u00E9t\u00E9 annul\u00E9e.');
+}
+
+// ==================== Activity List ====================
+
 export function buildActivityListEmbed(
   activities: (ActivityData & { signups: SignupData[] })[],
 ): EmbedBuilder {

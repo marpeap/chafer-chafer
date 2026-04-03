@@ -25,6 +25,7 @@ export function buildProfessionListEmbed(
 
 // ────────────────── Crafter search results ──────────────────
 
+/** @deprecated Use buildCrafterAvailableEmbed / buildCrafterUnavailableEmbed instead */
 export function buildCrafterSearchEmbed(
   crafters: (ProfessionProfile & { userId: string })[],
   profession: string,
@@ -43,6 +44,45 @@ export function buildCrafterSearchEmbed(
   return baseEmbed(`${Emoji.SEARCH} Artisans — ${profession}`, Colors.CRAFT)
     .setDescription(truncate(lines.join('\n'), 4000))
     .addFields({ name: 'Résultats', value: `${crafters.length} artisan(s) trouvé(s)`, inline: true });
+}
+
+// ────────────────── Smart search: available crafters (GREEN) ──────────────────
+
+export function buildCrafterAvailableEmbed(
+  crafters: { userId: string; level: number; note?: string | null }[],
+  profession: string,
+): EmbedBuilder {
+  const lines = crafters.map((c) => {
+    const note = c.note ? ` — _${c.note}_` : '';
+    return `${Emoji.CHECK} <@${c.userId}> — Niv. ${c.level}${note}`;
+  });
+
+  return baseEmbed(`${Emoji.HAMMER} Artisans disponibles — ${profession}`, Colors.SUCCESS)
+    .setDescription(truncate(lines.join('\n'), 4000))
+    .addFields({ name: 'Résultats', value: `${crafters.length} artisan(s) disponible(s)`, inline: true });
+}
+
+// ────────────────── Smart search: no available crafters (ORANGE) ──────────────────
+
+export function buildCrafterUnavailableEmbed(
+  crafters: { userId: string; level: number; note?: string | null }[],
+  profession: string,
+): EmbedBuilder {
+  if (crafters.length === 0) {
+    return baseEmbed(`${Emoji.SEARCH} ${profession}`, Colors.WARNING)
+      .setDescription(`Aucun artisan inscrit pour **${profession}**.`);
+  }
+
+  const lines = crafters.map((c) => {
+    const note = c.note ? ` — _${c.note}_` : '';
+    return `${Emoji.UNAVAILABLE} <@${c.userId}> — Niv. ${c.level}${note}`;
+  });
+
+  return baseEmbed(`${Emoji.HAMMER} Aucun artisan disponible — ${profession}`, Colors.WARNING)
+    .setDescription(
+      `Personne n'est disponible actuellement. Voici la liste des artisans :\n\n${truncate(lines.join('\n'), 3900)}`,
+    )
+    .addFields({ name: 'Résultats', value: `${crafters.length} artisan(s) inscrit(s)`, inline: true });
 }
 
 // ────────────────── Craft request card ──────────────────

@@ -8,7 +8,7 @@ import * as almanaxApi from '../../integrations/almanax/client.js';
 import { buildItemEmbed, buildSearchResultsEmbed } from '../C-encyclopedia/views.js';
 import { resolveRecipeNames } from '../C-encyclopedia/commands.js';
 import { buildAlmanaxEmbed } from '../D-almanax/views.js';
-import { buildCrafterSearchEmbed } from '../E-professions/views.js';
+import { buildCrafterAvailableEmbed, buildCrafterUnavailableEmbed } from '../E-professions/views.js';
 import { db } from '../../core/database.js';
 
 const log = childLogger('panel:modals');
@@ -74,7 +74,7 @@ async function handleDofusChercher(interaction: ModalSubmitInteraction): Promise
 }
 
 async function handleMetierChercher(interaction: ModalSubmitInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply();
 
   const profession = interaction.fields.getTextInputValue('profession').trim();
   if (!profession) {
@@ -84,18 +84,61 @@ async function handleMetierChercher(interaction: ModalSubmitInteraction): Promis
 
   const guildId = interaction.guildId!;
 
-  // Fuzzy match: case-insensitive contains
-  const profiles = await db().professionProfile.findMany({
+  // 1. Find ALL crafters with this profession (fuzzy match)
+  const allCrafters = await db().professionProfile.findMany({
     where: {
       guildId,
       profession: { contains: profession, mode: 'insensitive' },
-      available: true,
     },
     orderBy: { level: 'desc' },
   });
 
-  const embed = buildCrafterSearchEmbed(profiles, profession);
-  await interaction.editReply({ embeds: [embed] });
+  // 2. Find "Glandeur Dispo" players who listed this profession
+  const glandeurs = await db().playerProfile.findMany({
+    where: {
+      guildId,
+      globalAvailable: true,
+      professions200: { contains: profession, mode: 'insensitive' },
+    },
+  });
+
+  // 3. Build set of available user IDs
+  const availableUserIds = new Set<string>();
+  for (const c of allCrafters) {
+    if (c.available) availableUserIds.add(c.userId);
+  }
+  for (const g of glandeurs) {
+    availableUserIds.add(g.userId);
+  }
+
+  // 4. Split into available vs unavailable
+  const availableProfiles = allCrafters.filter((c) => availableUserIds.has(c.userId));
+
+  // Include glandeurs without a ProfessionProfile entry (level 200 assumed)
+  const existingUserIds = new Set(allCrafters.map((c) => c.userId));
+  for (const g of glandeurs) {
+    if (!existingUserIds.has(g.userId)) {
+      availableProfiles.push({
+        userId: g.userId,
+        level: 200,
+        note: 'Glandeur Dispo',
+      } as typeof allCrafters[number]);
+    }
+  }
+
+  if (availableProfiles.length > 0) {
+    // Case 1: Available crafters found — GREEN embed + ping in content
+    const mentions = availableProfiles.map((p) => `<@${p.userId}>`).join(' ');
+    const embed = buildCrafterAvailableEmbed(availableProfiles, profession);
+    await interaction.editReply({
+      content: `${mentions} — on cherche un **${profession}** !`,
+      embeds: [embed],
+    });
+  } else {
+    // Case 2: No available crafters — ORANGE embed, no ping
+    const embed = buildCrafterUnavailableEmbed(allCrafters, profession);
+    await interaction.editReply({ embeds: [embed] });
+  }
 }
 
 async function handleAlmanaxBonus(interaction: ModalSubmitInteraction): Promise<void> {

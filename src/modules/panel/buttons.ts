@@ -37,7 +37,7 @@ import {
 import * as almanaxClient from '../../integrations/almanax/client.js';
 import { buildAlmanaxEmbed, buildAlmanaxWeekEmbed } from '../D-almanax/views.js';
 import { buildActivityListEmbed, buildTypeSelectMessage } from '../B-activities/views.js';
-import { buildProfessionListEmbed, buildCrafterSearchEmbed } from '../E-professions/views.js';
+import { buildProfessionListEmbed } from '../E-professions/views.js';
 import { buildRewardListEmbed } from '../F-rewards/views.js';
 
 const log = childLogger('panel');

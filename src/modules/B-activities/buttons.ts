@@ -10,7 +10,7 @@ import {
 import { db } from '../../core/database.js';
 import { childLogger } from '../../core/logger.js';
 import { errorEmbed, noPermissionEmbed } from '../../views/base.js';
-import { buildActivityEmbed, buildQuickCallEmbed } from './views.js';
+import { buildActivityEmbed, buildQuickCallEmbed, buildSearchCancelledEmbed } from './views.js';
 import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
 
 const log = childLogger('activities:buttons');
@@ -21,6 +21,11 @@ export async function handleActivityButton(interaction: ButtonInteraction): Prom
   // 2-step type selection buttons: activity:type_select:{flowType}:{type}
   if (customId.startsWith('activity:type_select:')) {
     return handleTypeSelect(interaction);
+  }
+
+  // Cancel search button: activity:cancel_search:{id}
+  if (customId.startsWith('activity:cancel_search:')) {
+    return handleCancelSearch(interaction);
   }
 
   if (customId.startsWith('activity:')) {
@@ -330,5 +335,72 @@ async function handleLfgResponse(interaction: ButtonInteraction): Promise<void> 
     } catch (err) {
       log.warn({ err, quickCallId }, 'Failed to update LFG embed');
     }
+  }
+}
+
+async function handleCancelSearch(interaction: ButtonInteraction): Promise<void> {
+  const parts = interaction.customId.split(':');
+  // Format: activity:cancel_search:{id}
+  if (parts.length !== 3) return;
+
+  const searchId = parseInt(parts[2], 10);
+  if (isNaN(searchId)) return;
+
+  await interaction.deferUpdate();
+
+  try {
+    const searchEntry = await db().searchQueue.findFirst({
+      where: {
+        id: searchId,
+        guildId: interaction.guildId!,
+      },
+    });
+
+    if (!searchEntry) {
+      await interaction.followUp({
+        embeds: [errorEmbed('Recherche introuvable.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Only the user who created the search can cancel it
+    if (searchEntry.userId !== interaction.user.id) {
+      await interaction.followUp({
+        embeds: [errorEmbed('Tu ne peux annuler que ta propre recherche.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    if (searchEntry.matched) {
+      await interaction.followUp({
+        embeds: [errorEmbed('Cette recherche a déjà trouvé un groupe.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    // Delete the search entry
+    await db().searchQueue.delete({ where: { id: searchId } });
+
+    // Update the message to show cancelled
+    const cancelledEmbed = buildSearchCancelledEmbed();
+    try {
+      await interaction.editReply({
+        embeds: [cancelledEmbed],
+        components: [], // remove buttons
+      });
+    } catch (err) {
+      log.warn({ err, searchId }, 'Failed to update cancelled search message');
+    }
+
+    log.info({ searchId, userId: interaction.user.id }, 'Search cancelled');
+  } catch (err) {
+    log.error({ err, searchId }, 'Failed to cancel search');
+    await interaction.followUp({
+      embeds: [errorEmbed('Erreur lors de l\'annulation de la recherche.')],
+      ephemeral: true,
+    });
   }
 }

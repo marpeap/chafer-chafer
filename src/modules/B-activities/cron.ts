@@ -26,6 +26,12 @@ export function registerActivityCrons(): void {
     schedule: '*/10 * * * *', // Every 10 minutes
     handler: handleExpireLfg,
   });
+
+  registerJob({
+    name: 'cleanup-search-queue',
+    schedule: '*/10 * * * *', // Every 10 minutes
+    handler: handleCleanupSearchQueue,
+  });
 }
 
 async function handleCheckReminders(): Promise<void> {
@@ -165,5 +171,26 @@ async function handleExpireLfg(): Promise<void> {
     }
 
     log.info({ quickCallId: call.id }, 'LFG expired');
+  }
+}
+
+async function handleCleanupSearchQueue(): Promise<void> {
+  const now = new Date();
+
+  try {
+    const result = await db().searchQueue.deleteMany({
+      where: {
+        OR: [
+          { expiresAt: { lte: now } },
+          { matched: true },
+        ],
+      },
+    });
+
+    if (result.count > 0) {
+      log.info({ deleted: result.count }, 'Cleaned up expired/matched search queue entries');
+    }
+  } catch (err) {
+    log.error({ err }, 'Failed to cleanup search queue');
   }
 }

@@ -4,6 +4,7 @@ import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
 import { errorEmbed, successEmbed } from '../../views/base.js';
 import { buildActivityEmbed, buildQuickCallEmbed, parseRoleSlots } from './views.js';
+import { findOrCreateMatch } from './matching.js';
 
 const log = childLogger('activities:modals');
 
@@ -284,7 +285,25 @@ async function handleLfgCreerModal(interaction: ModalSubmitInteraction): Promise
     return;
   }
 
-  // Create quick call in DB
+  // Try smart matching first — fallback to direct QuickCall creation if matching fails
+  try {
+    await findOrCreateMatch({
+      guildId,
+      userId: interaction.user.id,
+      activityType,
+      playersNeeded,
+      minLevel,
+      comment: commentaire,
+      expiresAt,
+      channel,
+      interaction,
+    });
+    return;
+  } catch (err) {
+    log.warn({ err }, 'Smart matching failed, falling back to direct QuickCall creation');
+  }
+
+  // Fallback: Create quick call directly (original behavior)
   const quickCall = await db().quickCall.create({
     data: {
       guildId,

@@ -276,6 +276,25 @@ model QuickCallResponse {
   @@map("quick_call_responses")
 }
 
+// ==================== SEARCH QUEUE (Smart LFG Matching) ====================
+
+model SearchQueue {
+  id           Int      @id @default(autoincrement())
+  guildId      String   @map("guild_id")
+  userId       String   @map("user_id")
+  activityType String   @map("activity_type") // donjon, koli, songe, quete, farm, pvp, autre
+  minLevel     Int?     @map("min_level")
+  message      String?  // optional comment
+  expiresAt    DateTime @map("expires_at")
+  matched      Boolean  @default(false)
+  quickCallId  Int?     @map("quick_call_id") // if matched to a QuickCall
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([guildId, activityType, matched])
+  @@index([guildId, expiresAt])
+  @@map("search_queue")
+}
+
 // ==================== PROFESSIONS (Module E) ====================
 
 model ProfessionProfile {
