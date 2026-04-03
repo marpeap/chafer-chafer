@@ -30,6 +30,18 @@ import {
   buildFlagsEmbed,
   buildFlagsSelectRow,
   buildHistoriqueUserModal,
+  buildOutilsPanelEmbed,
+  buildOutilsPanelRows,
+  buildDonjonFaitModal,
+  buildDonjonGuildeModal,
+  buildXpPersoModal,
+  buildXpMetierModal,
+  buildChasseModal,
+  buildAlmanaxDateModal,
+  buildAlmanaxAlerteModal,
+  buildAdminProfilModal,
+  buildAdminNoteModal,
+  buildAdminWarnModal,
 } from './views.js';
 
 // Imports from other modules — reuse their logic
@@ -142,6 +154,12 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
       return handleAdminMembresButton(interaction);
     case 'admin_historique':
       return handleAdminHistoriqueButton(interaction);
+    case 'admin_profil':
+      return handleAdminProfilButton(interaction);
+    case 'admin_note':
+      return handleAdminNoteButton(interaction);
+    case 'admin_warn':
+      return handleAdminWarnButton(interaction);
 
     // ── Config (admin) ──
     case 'config_salons':
@@ -150,6 +168,37 @@ export async function handlePanelButton(interaction: ButtonInteraction): Promise
       return handleConfigRoles(interaction);
     case 'config_flags':
       return handleConfigFlags(interaction);
+    case 'ping':
+      return handlePingButton(interaction);
+    case 'export_membres':
+    case 'export_activites':
+    case 'export_recompenses':
+    case 'export_audit':
+      return handleExportButton(interaction, action.replace('export_', ''));
+
+    // ── Outils panel ──
+    case 'classement_activites':
+    case 'classement_crafts':
+    case 'classement_recompenses':
+      return handleClassementButton(interaction, action.replace('classement_', ''));
+    case 'classement_resume':
+      return handleResumeButton(interaction);
+    case 'donjon_fait':
+      return interaction.showModal(buildDonjonFaitModal());
+    case 'donjon_progression':
+      return handleDonjonProgressionButton(interaction);
+    case 'donjon_guilde':
+      return interaction.showModal(buildDonjonGuildeModal());
+    case 'xp_perso':
+      return interaction.showModal(buildXpPersoModal());
+    case 'xp_metier':
+      return interaction.showModal(buildXpMetierModal());
+    case 'chasse':
+      return interaction.showModal(buildChasseModal());
+    case 'almanax_alerte':
+      return interaction.showModal(buildAlmanaxAlerteModal());
+    case 'almanax_date':
+      return interaction.showModal(buildAlmanaxDateModal());
 
     default:
       log.warn({ action }, 'Unknown panel button');
@@ -508,6 +557,152 @@ async function showRecompenseModal(interaction: ButtonInteraction): Promise<void
     );
 
   await interaction.showModal(modal);
+}
+
+// ══════════════════════════════════
+//  OUTILS PANEL HANDLERS
+// ══════════════════════════════════
+
+async function handleClassementButton(interaction: ButtonInteraction, type: string): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const { handleClassement: _unused, buildRecapData } = await import('../I-leaderboard/commands.js');
+    const { buildLeaderboardEmbed } = await import('../I-leaderboard/views.js');
+
+    const guildId = interaction.guildId!;
+    const periode = 'mois';
+    const since = new Date();
+    since.setMonth(since.getMonth() - 1);
+
+    let entries: { userId: string; count: number }[] = [];
+    let title = '';
+    let unit = '';
+
+    if (type === 'activites') {
+      const signups = await db().activitySignup.findMany({
+        where: { status: 'confirmed', activity: { guildId, scheduledAt: { gte: since } } },
+        select: { userId: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const s of signups) counts[s.userId] = (counts[s.userId] || 0) + 1;
+      entries = Object.entries(counts).map(([userId, count]) => ({ userId, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+      title = 'Participations aux sorties';
+      unit = 'participations';
+    } else if (type === 'crafts') {
+      const crafts = await db().craftRequest.findMany({
+        where: { guildId, status: 'completed', updatedAt: { gte: since }, crafterId: { not: null } },
+        select: { crafterId: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const c of crafts) counts[c.crafterId!] = (counts[c.crafterId!] || 0) + 1;
+      entries = Object.entries(counts).map(([userId, count]) => ({ userId, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+      title = 'Crafts complétés';
+      unit = 'crafts';
+    } else if (type === 'recompenses') {
+      const rewards = await db().reward.findMany({
+        where: { guildId, status: { in: ['claimed', 'paid'] }, createdAt: { gte: since } },
+        select: { recipientId: true },
+      });
+      const counts: Record<string, number> = {};
+      for (const r of rewards) counts[r.recipientId] = (counts[r.recipientId] || 0) + 1;
+      entries = Object.entries(counts).map(([userId, count]) => ({ userId, count })).sort((a, b) => b.count - a.count).slice(0, 15);
+      title = 'Récompenses reçues';
+      unit = 'récompenses';
+    }
+
+    const embed = buildLeaderboardEmbed(title, entries, periode, unit);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err, type }, 'handleClassementButton error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors du chargement du classement.')] });
+  }
+}
+
+async function handleResumeButton(interaction: ButtonInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const { buildRecapData } = await import('../I-leaderboard/commands.js');
+    const { buildWeeklyRecapEmbed } = await import('../I-leaderboard/views.js');
+    const data = await buildRecapData(interaction.guildId!, 7);
+    const embed = buildWeeklyRecapEmbed(data);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleResumeButton error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors du chargement du résumé.')] });
+  }
+}
+
+async function handleDonjonProgressionButton(interaction: ButtonInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const { buildDungeonProgressEmbed } = await import('../J-dungeons/views.js');
+    const completed = await db().dungeonProgress.findMany({
+      where: { guildId: interaction.guildId!, userId: interaction.user.id },
+      select: { dungeonName: true },
+    });
+    const completedNames = new Set(completed.map((d: { dungeonName: string }) => d.dungeonName));
+    const embed = buildDungeonProgressEmbed(completedNames, interaction.user.displayName);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleDonjonProgressionButton error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors du chargement de la progression.')] });
+  }
+}
+
+// ══════════════════════════════════
+//  ADMIN OFFICER PANEL HANDLERS
+// ══════════════════════════════════
+
+async function handleAdminProfilButton(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.OFFICER, level)) {
+    await interaction.reply({ embeds: [noPermissionEmbed(levelName(PermissionLevel.OFFICER))], ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildAdminProfilModal());
+}
+
+async function handleAdminNoteButton(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.ADMIN, level)) {
+    await interaction.reply({ embeds: [noPermissionEmbed(levelName(PermissionLevel.ADMIN))], ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildAdminNoteModal());
+}
+
+async function handleAdminWarnButton(interaction: ButtonInteraction): Promise<void> {
+  const member = interaction.member as GuildMember;
+  const level = await getMemberLevel(member);
+  if (!requireLevel(PermissionLevel.ADMIN, level)) {
+    await interaction.reply({ embeds: [noPermissionEmbed(levelName(PermissionLevel.ADMIN))], ephemeral: true });
+    return;
+  }
+  await interaction.showModal(buildAdminWarnModal());
+}
+
+// ══════════════════════════════════
+//  PING & EXPORT HANDLERS (config panel)
+// ══════════════════════════════════
+
+async function handlePingButton(interaction: ButtonInteraction): Promise<void> {
+  if (!(await requireAdmin(interaction))) return;
+  const { handlePing } = await import('../admin/ping.js');
+  return handlePing(interaction as unknown as import('discord.js').ChatInputCommandInteraction);
+}
+
+async function handleExportButton(interaction: ButtonInteraction, type: string): Promise<void> {
+  if (!(await requireAdmin(interaction))) return;
+  await interaction.deferReply({ ephemeral: true });
+  try {
+    const { exportFromPanel } = await import('../admin/export.js');
+    await exportFromPanel(interaction, type);
+  } catch (err) {
+    log.error({ err, type }, 'handleExportButton error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de l\'export.')] });
+  }
 }
 
 // ══════════════════════════════════

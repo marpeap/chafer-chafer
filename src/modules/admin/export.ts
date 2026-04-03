@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, AttachmentBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, ButtonInteraction, AttachmentBuilder } from 'discord.js';
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
 import { infoEmbed } from '../../views/base.js';
@@ -284,4 +284,55 @@ async function exportAudit(interaction: ChatInputCommandInteraction): Promise<vo
     : '';
 
   await interaction.reply({ content: truncatedNote || undefined, files: [attachment], ephemeral: true });
+}
+
+// ────────────────── Panel button export (pre-deferred) ──────────────────
+
+export async function exportFromPanel(interaction: ButtonInteraction, type: string): Promise<void> {
+  const guildId = interaction.guildId!;
+
+  switch (type) {
+    case 'membres': {
+      const members = await db().playerProfile.findMany({ where: { guildId, status: 'approved' }, orderBy: { createdAt: 'asc' }, take: 5000 });
+      if (members.length === 0) { await interaction.editReply({ embeds: [infoEmbed('Export membres', 'Aucun membre approuvé.')] }); return; }
+      const header = csvRow(['ID', 'Discord ID', 'Pseudo', 'Classe', 'Niveau', 'Orientation', 'Metiers 200', 'Dispo', 'Date inscription']);
+      const rows = members.map((m) => csvRow([m.id, m.userId, m.characterName, m.characterClass, m.characterLevel, m.orientation, m.professions200, m.globalAvailable ? 'Oui' : 'Non', formatDateFR(m.createdAt)]));
+      const csv = BOM + [header, ...rows].join('\n');
+      await interaction.editReply({ files: [new AttachmentBuilder(Buffer.from(csv, 'utf-8'), { name: 'membres.csv' })] });
+      await audit({ guildId, actorId: interaction.user.id, action: 'export.membres', details: { count: members.length } });
+      return;
+    }
+    case 'activites': {
+      const since = new Date(); since.setDate(since.getDate() - 30);
+      const activities = await db().activity.findMany({ where: { guildId, createdAt: { gte: since } }, include: { signups: true }, orderBy: { scheduledAt: 'desc' }, take: 5000 });
+      if (activities.length === 0) { await interaction.editReply({ embeds: [infoEmbed('Export activités', 'Aucune activité (30j).')] }); return; }
+      const header = csvRow(['ID', 'Type', 'Titre', 'Créateur', 'Date', 'Durée', 'Max', 'Statut', 'Inscrits']);
+      const rows = activities.map((a) => csvRow([a.id, a.activityType, a.title, a.createdBy, formatDateFR(a.scheduledAt), a.estimatedDuration ? `${a.estimatedDuration}min` : '', a.maxPlayers, a.status, a.signups.filter((s) => s.status === 'confirmed').length]));
+      const csv = BOM + [header, ...rows].join('\n');
+      await interaction.editReply({ files: [new AttachmentBuilder(Buffer.from(csv, 'utf-8'), { name: 'activites.csv' })] });
+      await audit({ guildId, actorId: interaction.user.id, action: 'export.activites', details: { count: activities.length } });
+      return;
+    }
+    case 'recompenses': {
+      const rewards = await db().reward.findMany({ where: { guildId }, orderBy: { createdAt: 'desc' }, take: 5000 });
+      if (rewards.length === 0) { await interaction.editReply({ embeds: [infoEmbed('Export récompenses', 'Aucune.')] }); return; }
+      const header = csvRow(['ID', 'Titre', 'Montant', 'Bénéficiaire', 'Créateur', 'Statut', 'Date création', 'Date paiement']);
+      const rows = rewards.map((r) => csvRow([r.id, r.title, r.amount, r.recipientId, r.createdBy, r.status, formatDateFR(r.createdAt), r.paidAt ? formatDateFR(r.paidAt) : '']));
+      const csv = BOM + [header, ...rows].join('\n');
+      await interaction.editReply({ files: [new AttachmentBuilder(Buffer.from(csv, 'utf-8'), { name: 'recompenses.csv' })] });
+      await audit({ guildId, actorId: interaction.user.id, action: 'export.recompenses', details: { count: rewards.length } });
+      return;
+    }
+    case 'audit': {
+      const since = new Date(); since.setDate(since.getDate() - 7);
+      const logs = await db().auditLog.findMany({ where: { guildId, createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 5000 });
+      if (logs.length === 0) { await interaction.editReply({ embeds: [infoEmbed('Export audit', 'Aucune entrée (7j).')] }); return; }
+      const header = csvRow(['ID', 'Action', 'Acteur', 'Type cible', 'ID cible', 'Date']);
+      const rows = logs.map((l) => csvRow([l.id, l.action, l.actorId, l.targetType, l.targetId, formatDateFR(l.createdAt)]));
+      const csv = BOM + [header, ...rows].join('\n');
+      await interaction.editReply({ files: [new AttachmentBuilder(Buffer.from(csv, 'utf-8'), { name: 'audit.csv' })] });
+      await audit({ guildId, actorId: interaction.user.id, action: 'export.audit', details: { count: logs.length } });
+      return;
+    }
+  }
 }

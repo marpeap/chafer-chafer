@@ -359,6 +359,10 @@ const commands = [
     .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
       sub.setName('officier')
         .setDescription('Panneau officier')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('outils')
+        .setDescription('Panneau outils & statistiques')
     ),
 
   // /admin

@@ -9,6 +9,8 @@ import {
   buildConfigPanelRows,
   buildOfficerPanelEmbed,
   buildOfficerPanelRows,
+  buildOutilsPanelEmbed,
+  buildOutilsPanelRows,
 } from './views.js';
 import type { GuildMember } from 'discord.js';
 
@@ -25,6 +27,8 @@ export async function handlePanneau(interaction: ChatInputCommandInteraction): P
       return handlePanneauConfig(interaction);
     case 'officier':
       return handlePanneauOfficier(interaction);
+    case 'outils':
+      return handlePanneauOutils(interaction);
     default:
       log.warn({ sub }, 'Unknown panneau subcommand');
   }
@@ -84,6 +88,14 @@ async function handlePanneauOfficier(interaction: ChatInputCommandInteraction): 
   await interaction.reply({
     embeds: [buildOfficerPanelEmbed()],
     components: buildOfficerPanelRows(),
+    ephemeral: true,
+  });
+}
+
+async function handlePanneauOutils(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.reply({
+    embeds: [buildOutilsPanelEmbed()],
+    components: buildOutilsPanelRows(),
     ephemeral: true,
   });
 }

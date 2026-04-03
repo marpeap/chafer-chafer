@@ -1,6 +1,6 @@
 import { ModalSubmitInteraction } from 'discord.js';
 import { childLogger } from '../../core/logger.js';
-import { errorEmbed } from '../../views/base.js';
+import { errorEmbed, successEmbed } from '../../views/base.js';
 
 // Reuse existing module logic
 import * as dofusdude from '../../integrations/dofusdude/client.js';
@@ -23,6 +23,26 @@ export async function handlePanelModal(interaction: ModalSubmitInteraction): Pro
       return handleMetierChercher(interaction);
     case 'panel:modal_almanax_bonus':
       return handleAlmanaxBonus(interaction);
+    case 'panel:modal_donjon_fait':
+      return handleDonjonFaitModal(interaction);
+    case 'panel:modal_donjon_guilde':
+      return handleDonjonGuildeModal(interaction);
+    case 'panel:modal_xp_perso':
+      return handleXpPersoModal(interaction);
+    case 'panel:modal_xp_metier':
+      return handleXpMetierModal(interaction);
+    case 'panel:modal_chasse':
+      return handleChasseModal(interaction);
+    case 'panel:modal_almanax_date':
+      return handleAlmanaxDateModal(interaction);
+    case 'panel:modal_almanax_alerte':
+      return handleAlmanaxAlerteModal(interaction);
+    case 'panel:modal_admin_profil':
+      return handleAdminProfilModal(interaction);
+    case 'panel:modal_admin_note':
+      return handleAdminNoteModal(interaction);
+    case 'panel:modal_admin_warn':
+      return handleAdminWarnModal(interaction);
     default:
       log.warn({ customId }, 'Unknown panel modal');
   }
@@ -169,5 +189,325 @@ async function handleAlmanaxBonus(interaction: ModalSubmitInteraction): Promise<
     await interaction.editReply({
       embeds: [errorEmbed('Erreur lors de la recherche.')],
     });
+  }
+}
+
+// ══════════════════════════════════
+//  OUTILS MODAL HANDLERS
+// ══════════════════════════════════
+
+async function handleDonjonFaitModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const nom = interaction.fields.getTextInputValue('nom').trim();
+  if (!nom) {
+    await interaction.reply({ embeds: [errorEmbed('Nom du donjon vide.')], ephemeral: true });
+    return;
+  }
+
+  try {
+    const { DUNGEONS } = await import('../J-dungeons/data.js');
+    const dungeon = DUNGEONS.find((d: { name: string }) => d.name.toLowerCase() === nom.toLowerCase());
+    if (!dungeon) {
+      await interaction.reply({
+        embeds: [errorEmbed(`Donjon inconnu : \`${nom}\`. Vérifie l'orthographe ou utilise \`/donjon fait\` avec l'autocomplétion.`)],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await db().dungeonProgress.upsert({
+      where: { guildId_userId_dungeonName: { guildId: interaction.guildId!, userId: interaction.user.id, dungeonName: dungeon.name } },
+      create: { guildId: interaction.guildId!, userId: interaction.user.id, dungeonName: dungeon.name },
+      update: { completedAt: new Date() },
+    });
+
+    await interaction.reply({
+      embeds: [successEmbed(`Donjon **${dungeon.name}** marqué comme complété !`)],
+      ephemeral: true,
+    });
+  } catch (err) {
+    log.error({ err }, 'handleDonjonFaitModal error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors de l\'enregistrement.')], ephemeral: true }).catch(() => {});
+  }
+}
+
+async function handleDonjonGuildeModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const nom = interaction.fields.getTextInputValue('nom').trim();
+  if (!nom) {
+    await interaction.editReply({ embeds: [errorEmbed('Nom du donjon vide.')] });
+    return;
+  }
+
+  try {
+    const { DUNGEONS } = await import('../J-dungeons/data.js');
+    const { buildDungeonGuildEmbed } = await import('../J-dungeons/views.js');
+    const dungeon = DUNGEONS.find((d: { name: string }) => d.name.toLowerCase() === nom.toLowerCase());
+    if (!dungeon) {
+      await interaction.editReply({ embeds: [errorEmbed(`Donjon inconnu : \`${nom}\`.`)] });
+      return;
+    }
+
+    const completions = await db().dungeonProgress.findMany({
+      where: { guildId: interaction.guildId!, dungeonName: dungeon.name },
+      select: { userId: true },
+    });
+    const embed = buildDungeonGuildEmbed(dungeon, completions.map((c: { userId: string }) => c.userId));
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleDonjonGuildeModal error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la recherche.')] });
+  }
+}
+
+async function handleXpPersoModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const actuel = parseInt(interaction.fields.getTextInputValue('actuel'), 10);
+  const cible = parseInt(interaction.fields.getTextInputValue('cible'), 10);
+
+  if (isNaN(actuel) || isNaN(cible) || actuel < 1 || actuel > 200 || cible < 1 || cible > 200) {
+    await interaction.reply({ embeds: [errorEmbed('Les niveaux doivent être entre 1 et 200.')], ephemeral: true });
+    return;
+  }
+  if (cible <= actuel) {
+    await interaction.reply({ embeds: [errorEmbed('Le niveau cible doit être supérieur au niveau actuel.')], ephemeral: true });
+    return;
+  }
+
+  let total = 0;
+  for (let l = actuel + 1; l <= cible; l++) total += Math.floor(Math.pow(l, 2.4) * 10);
+
+  const { buildXpEmbed } = await import('../K-tools/views.js');
+  const embed = buildXpEmbed(actuel, cible, total);
+  await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+async function handleXpMetierModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const actuel = parseInt(interaction.fields.getTextInputValue('actuel'), 10);
+  const cible = parseInt(interaction.fields.getTextInputValue('cible'), 10);
+
+  if (isNaN(actuel) || isNaN(cible) || actuel < 1 || actuel > 200 || cible < 1 || cible > 200) {
+    await interaction.reply({ embeds: [errorEmbed('Les niveaux doivent être entre 1 et 200.')], ephemeral: true });
+    return;
+  }
+  if (cible <= actuel) {
+    await interaction.reply({ embeds: [errorEmbed('Le niveau cible doit être supérieur au niveau actuel.')], ephemeral: true });
+    return;
+  }
+
+  let total = 0;
+  for (let l = actuel + 1; l <= cible; l++) total += 10 * l * (l - 1);
+
+  const { buildXpMetierEmbed } = await import('../K-tools/views.js');
+  const embed = buildXpMetierEmbed(actuel, cible, total);
+  await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+async function handleChasseModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const x = parseInt(interaction.fields.getTextInputValue('x'), 10);
+  const y = parseInt(interaction.fields.getTextInputValue('y'), 10);
+  const dirRaw = interaction.fields.getTextInputValue('direction').trim().toLowerCase();
+
+  if (isNaN(x) || isNaN(y)) {
+    await interaction.editReply({ embeds: [errorEmbed('Coordonnées X et Y invalides.')] });
+    return;
+  }
+
+  const DIRECTION_MAP: Record<string, number> = { haut: 0, bas: 2, droite: 1, gauche: 3 };
+  const VALID_DIRS = ['haut', 'bas', 'gauche', 'droite'];
+  const dir = VALID_DIRS.find((d) => d.startsWith(dirRaw));
+  if (!dir) {
+    await interaction.editReply({ embeds: [errorEmbed(`Direction invalide : \`${dirRaw}\`. Valeurs : haut, bas, gauche, droite.`)] });
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `https://dofus-map.com/huntTool/getData.php?x=${x}&y=${y}&direction=${DIRECTION_MAP[dir]}&world=0&language=fr`,
+      { signal: AbortSignal.timeout(8000) },
+    );
+
+    if (!response.ok) {
+      await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la requête à dofus-map.com.')] });
+      return;
+    }
+
+    const data = await response.json() as import('../K-tools/chasse.js').ChasseResponse;
+    const { buildChasseEmbed } = await import('../K-tools/views-chasse.js');
+    const embed = buildChasseEmbed(x, y, dir, data);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleChasseModal error');
+    await interaction.editReply({ embeds: [errorEmbed('Impossible de contacter dofus-map.com.')] });
+  }
+}
+
+async function handleAlmanaxDateModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const dateStr = interaction.fields.getTextInputValue('date').trim();
+  const parsed = new Date(dateStr);
+
+  if (isNaN(parsed.getTime())) {
+    await interaction.editReply({ embeds: [errorEmbed('Date invalide. Utilise le format **AAAA-MM-JJ**.')]});
+    return;
+  }
+
+  try {
+    const { data, stale } = await almanaxApi.getDate(parsed);
+    const embed = buildAlmanaxEmbed(data, stale);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err, dateStr }, 'handleAlmanaxDateModal error');
+    await interaction.editReply({ embeds: [errorEmbed(`Impossible de récupérer l'almanax pour le **${dateStr}**.`)] });
+  }
+}
+
+async function handleAlmanaxAlerteModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const bonusType = interaction.fields.getTextInputValue('bonus_type').trim();
+  if (!bonusType) {
+    await interaction.reply({ embeds: [errorEmbed('Type de bonus vide.')], ephemeral: true });
+    return;
+  }
+
+  const guildId = interaction.guildId!;
+  const userId = interaction.user.id;
+
+  try {
+    const existing = await db().almanaxAlert.findUnique({
+      where: { guildId_userId_bonusType: { guildId, userId, bonusType } },
+    });
+
+    if (existing) {
+      await db().almanaxAlert.delete({ where: { id: existing.id } });
+      await interaction.reply({
+        embeds: [successEmbed(`Alerte supprimée pour le bonus **${bonusType}**.`)],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    const count = await db().almanaxAlert.count({ where: { guildId, userId } });
+    if (count >= 10) {
+      await interaction.reply({
+        embeds: [errorEmbed('Limite de 10 alertes atteinte. Supprime-en une d\'abord.')],
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await db().almanaxAlert.create({ data: { guildId, userId, bonusType } });
+    await interaction.reply({
+      embeds: [successEmbed(`Alerte activée ! Tu seras mentionné quand le bonus **${bonusType}** sera actif.`)],
+      ephemeral: true,
+    });
+  } catch (err) {
+    log.error({ err }, 'handleAlmanaxAlerteModal error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors de la gestion de l\'alerte.')], ephemeral: true }).catch(() => {});
+  }
+}
+
+// ══════════════════════════════════
+//  ADMIN MODAL HANDLERS
+// ══════════════════════════════════
+
+async function handleAdminProfilModal(interaction: ModalSubmitInteraction): Promise<void> {
+  await interaction.deferReply({ ephemeral: true });
+
+  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  try {
+    const { buildProfileEmbed } = await import('../A-members/views.js');
+    const { discordClient } = await import('../../core/client.js');
+    const profile = await db().playerProfile.findFirst({
+      where: { guildId: interaction.guildId!, userId: rawId },
+    });
+
+    if (!profile) {
+      await interaction.editReply({ embeds: [errorEmbed(`Aucun profil trouvé pour <@${rawId}>.`)] });
+      return;
+    }
+
+    const guild = await discordClient().guilds.fetch(interaction.guildId!);
+    const member = await guild.members.fetch(rawId).catch(() => null);
+    if (!member) {
+      await interaction.editReply({ embeds: [errorEmbed(`Membre <@${rawId}> introuvable sur le serveur.`)] });
+      return;
+    }
+
+    const embed = buildProfileEmbed(profile, member);
+    await interaction.editReply({ embeds: [embed] });
+  } catch (err) {
+    log.error({ err }, 'handleAdminProfilModal error');
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de la récupération du profil.')] });
+  }
+}
+
+async function handleAdminNoteModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  const texte = interaction.fields.getTextInputValue('texte').trim();
+
+  if (!texte) {
+    await interaction.reply({ embeds: [errorEmbed('Texte de la note vide.')], ephemeral: true });
+    return;
+  }
+
+  try {
+    const { audit } = await import('../../core/audit.js');
+    await audit({
+      guildId: interaction.guildId!,
+      actorId: interaction.user.id,
+      action: 'admin.note',
+      targetType: 'user',
+      targetId: rawId,
+      details: { note: texte },
+    });
+
+    await interaction.reply({
+      embeds: [successEmbed(`Note ajoutée pour <@${rawId}>.`)],
+      ephemeral: true,
+    });
+  } catch (err) {
+    log.error({ err }, 'handleAdminNoteModal error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors de l\'ajout de la note.')], ephemeral: true }).catch(() => {});
+  }
+}
+
+async function handleAdminWarnModal(interaction: ModalSubmitInteraction): Promise<void> {
+  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  const raison = interaction.fields.getTextInputValue('raison').trim();
+
+  if (!raison) {
+    await interaction.reply({ embeds: [errorEmbed('Raison de l\'avertissement vide.')], ephemeral: true });
+    return;
+  }
+
+  try {
+    const { audit } = await import('../../core/audit.js');
+    await audit({
+      guildId: interaction.guildId!,
+      actorId: interaction.user.id,
+      action: 'admin.warn',
+      targetType: 'user',
+      targetId: rawId,
+      details: { reason: raison },
+    });
+
+    // Try to DM the user
+    try {
+      const { discordClient } = await import('../../core/client.js');
+      const user = await discordClient().users.fetch(rawId);
+      await user.send(`⚠️ Tu as reçu un avertissement sur le serveur : **${raison}**`);
+    } catch {
+      // DM failed (user has DMs disabled), that's OK
+    }
+
+    await interaction.reply({
+      embeds: [successEmbed(`Avertissement envoyé à <@${rawId}>.\nRaison : ${raison}`)],
+      ephemeral: true,
+    });
+  } catch (err) {
+    log.error({ err }, 'handleAdminWarnModal error');
+    await interaction.reply({ embeds: [errorEmbed('Erreur lors de l\'avertissement.')], ephemeral: true }).catch(() => {});
   }
 }
