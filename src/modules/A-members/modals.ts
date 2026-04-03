@@ -8,8 +8,19 @@ import { PROFESSIONS } from '../E-professions/commands.js';
 
 const log = childLogger('A-members:modals');
 
-// Normalized profession names for validation (lowercase)
-const PROFESSIONS_LOWER = PROFESSIONS.map((p) => p.toLowerCase());
+/** Strip accents, apostrophes, and normalize whitespace for fuzzy matching */
+function normalizeForMatch(s: string): string {
+  return s
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '') // strip combining diacriticals
+    .replace(/[''`]/g, '')           // strip apostrophes
+    .replace(/\s+/g, ' ')           // collapse whitespace
+    .toLowerCase()
+    .trim();
+}
+
+// Normalized profession names for fuzzy matching
+const PROFESSIONS_NORMALIZED = PROFESSIONS.map((p) => normalizeForMatch(p));
 
 export async function handleMemberModal(interaction: ModalSubmitInteraction): Promise<void> {
   switch (interaction.customId) {
@@ -59,26 +70,20 @@ async function validateProfileFields(
     return false;
   }
 
-  // Validate orientation
-  const validOrientations: Record<string, string> = {
-    pvm: 'pvm',
-    pvp: 'pvp',
-    'les deux': 'both',
-    both: 'both',
-    lesdeux: 'both',
-    'les 2': 'both',
+  // Soft-normalize orientation: if it matches a known keyword, use canonical form
+  // Otherwise store the raw text as-is (free text field)
+  const orientationMap: Record<string, string> = {
+    pvm: 'PvM',
+    pvp: 'PvP',
+    'les deux': 'Les deux',
+    both: 'Les deux',
+    lesdeux: 'Les deux',
+    'les 2': 'Les deux',
+    'pvm/pvp': 'Les deux',
+    'pvp/pvm': 'Les deux',
   };
-
-  if (!validOrientations[fields.orientation]) {
-    await interaction.reply({
-      embeds: [errorEmbed('Orientation invalide. Valeurs accept\u00e9es : `pvm`, `pvp`, `les deux`.')],
-      ephemeral: true,
-    });
-    return false;
-  }
-
-  // Normalize orientation
-  fields.orientation = validOrientations[fields.orientation];
+  const normalized = fields.orientation.replace(/\s+/g, ' ').trim().toLowerCase();
+  fields.orientation = orientationMap[normalized] ?? fields.orientation.trim();
 
   // Validate class name (non-empty)
   if (!fields.characterClass) {
@@ -255,16 +260,25 @@ async function handleProfessions200Edit(interaction: ModalSubmitInteraction): Pr
     .map((p) => p.trim())
     .filter(Boolean);
 
-  // Validate each against known professions
+  // Validate each against known professions (accent-insensitive, apostrophe-insensitive)
   const invalid: string[] = [];
   const validated: string[] = [];
 
   for (const entry of parsed) {
-    const idx = PROFESSIONS_LOWER.indexOf(entry.toLowerCase());
+    const norm = normalizeForMatch(entry);
+    // Try exact normalized match first
+    let idx = PROFESSIONS_NORMALIZED.indexOf(norm);
+    // Fallback: try startsWith match (e.g. "forgeur dagues" → "Forgeur de Dagues")
+    if (idx === -1) {
+      idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.startsWith(norm) || norm.startsWith(p));
+    }
+    // Fallback: try contains match (e.g. "dagues" → "Forgeur de Dagues")
+    if (idx === -1) {
+      idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.includes(norm) || norm.includes(p));
+    }
     if (idx === -1) {
       invalid.push(entry);
     } else {
-      // Use the canonical casing from PROFESSIONS
       validated.push(PROFESSIONS[idx]);
     }
   }
@@ -272,7 +286,7 @@ async function handleProfessions200Edit(interaction: ModalSubmitInteraction): Pr
   if (invalid.length > 0) {
     await interaction.reply({
       embeds: [errorEmbed(
-        `M\u00e9tier(s) invalide(s) : ${invalid.map((i) => `\`${i}\``).join(', ')}\n\n` +
+        `M\u00e9tier(s) non reconnu(s) : ${invalid.map((i) => `\`${i}\``).join(', ')}\n\n` +
         `M\u00e9tiers valides :\n${PROFESSIONS.join(', ')}`,
       )],
       ephemeral: true,

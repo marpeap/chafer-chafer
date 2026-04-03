@@ -18,6 +18,26 @@ const VALID_TAGS = [
   'guilde',
 ] as const;
 
+/** Fuzzy-match a tag input to the closest valid tag */
+function matchTag(input: string): (typeof VALID_TAGS)[number] | null {
+  const norm = input.toLowerCase().replace(/[\s_-]+/g, '').trim();
+  // Exact normalized match (spaces/underscores removed)
+  const exact = VALID_TAGS.find((t) => t.replace(/_/g, '') === norm);
+  if (exact) return exact;
+  // StartsWith match
+  const starts = VALID_TAGS.find((t) => t.replace(/_/g, '').startsWith(norm));
+  if (starts) return starts;
+  // Contains match
+  const contains = VALID_TAGS.find((t) => t.replace(/_/g, '').includes(norm) || norm.includes(t.replace(/_/g, '')));
+  if (contains) return contains;
+  // Common aliases
+  const aliases: Record<string, (typeof VALID_TAGS)[number]> = {
+    help: 'aide', recrutement: 'recrutement_groupe', recruit: 'recrutement_groupe',
+    groupe: 'recrutement_groupe', songe: 'songes', dream: 'songes', guild: 'guilde',
+  };
+  return aliases[norm] ?? null;
+}
+
 export async function handleDemandeModal(interaction: ModalSubmitInteraction): Promise<void> {
   if (interaction.customId !== 'demande_creer') return;
 
@@ -26,14 +46,15 @@ export async function handleDemandeModal(interaction: ModalSubmitInteraction): P
 
   const title = interaction.fields.getTextInputValue('title').trim();
   const description = interaction.fields.getTextInputValue('description').trim();
-  const tagRaw = interaction.fields.getTextInputValue('tag').trim().toLowerCase();
+  const tagInput = interaction.fields.getTextInputValue('tag').trim();
 
-  // Validate tag
-  if (!VALID_TAGS.includes(tagRaw as typeof VALID_TAGS[number])) {
+  // Fuzzy-match tag
+  const tagRaw = matchTag(tagInput);
+  if (!tagRaw) {
     await interaction.reply({
       embeds: [
         errorEmbed(
-          `Tag invalide : \`${tagRaw}\`\nTags valides : ${VALID_TAGS.map((t) => `\`${t}\``).join(', ')}`,
+          `Tag non reconnu : \`${tagInput}\`\nTags valides : ${VALID_TAGS.map((t) => `\`${t}\``).join(', ')}`,
         ),
       ],
       ephemeral: true,
