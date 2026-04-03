@@ -37,6 +37,8 @@ export function registerAlmanaxCron(): void {
         where: { almanaxChannelId: { not: null } },
       });
 
+      const bonusTypeId = data.bonus?.type?.id;
+
       for (const guild of guilds) {
         try {
           const channel = await client.channels.fetch(guild.almanaxChannelId!);
@@ -46,8 +48,20 @@ export function registerAlmanaxCron(): void {
             continue;
           }
 
-          await channel.send({ embeds });
-          log.info({ guildId: guild.guildId, channelId: guild.almanaxChannelId }, 'Daily almanax posted');
+          // Find users who subscribed to this bonus type
+          let mentionContent: string | undefined;
+          if (bonusTypeId) {
+            const alerts = await db().almanaxAlert.findMany({
+              where: { guildId: guild.guildId, bonusType: bonusTypeId },
+              select: { userId: true },
+            });
+            if (alerts.length > 0) {
+              mentionContent = alerts.map((a) => `<@${a.userId}>`).join(' ') + ' — Bonus que tu suis !';
+            }
+          }
+
+          await channel.send({ content: mentionContent, embeds });
+          log.info({ guildId: guild.guildId, channelId: guild.almanaxChannelId, alerts: mentionContent ? 'yes' : 'no' }, 'Daily almanax posted');
         } catch (err) {
           log.error({ err, guildId: guild.guildId, channelId: guild.almanaxChannelId }, 'Failed to post daily almanax');
         }

@@ -49,6 +49,13 @@ async function boot(): Promise<void> {
     log.warn({ err }, 'Failed to register member crons');
   }
 
+  try {
+    const { registerLeaderboardCrons } = await import('./modules/I-leaderboard/cron.js');
+    registerLeaderboardCrons();
+  } catch (err) {
+    log.warn({ err }, 'Failed to register leaderboard crons');
+  }
+
   startAllJobs();
   log.info('Cron jobs started');
 

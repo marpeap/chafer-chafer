@@ -77,6 +77,11 @@ const commands = [
     .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
       sub.setName('semaine')
         .setDescription('Almanax des 7 prochains jours')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('alerte')
+        .setDescription('S\'abonner/se désabonner d\'un type de bonus')
+        .addStringOption(o => o.setName('type').setDescription('Type de bonus').setRequired(true).setAutocomplete(true))
     ),
 
   // /dofus
@@ -224,6 +229,99 @@ const commands = [
       sub.setName('creer')
         .setDescription('Créer une nouvelle demande')
     ),
+
+  // /classement
+  new SlashCommandBuilder()
+    .setName('classement')
+    .setDescription('Classements de la guilde')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('activites')
+        .setDescription('Top participants aux sorties')
+        .addStringOption(o => o.setName('periode').setDescription('Période').addChoices(
+          { name: 'Cette semaine', value: 'semaine' },
+          { name: 'Ce mois', value: 'mois' },
+          { name: 'Ce trimestre', value: 'trimestre' },
+          { name: 'Depuis toujours', value: 'tout' },
+        ))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('crafts')
+        .setDescription('Top artisans')
+        .addStringOption(o => o.setName('periode').setDescription('Période').addChoices(
+          { name: 'Cette semaine', value: 'semaine' },
+          { name: 'Ce mois', value: 'mois' },
+          { name: 'Ce trimestre', value: 'trimestre' },
+          { name: 'Depuis toujours', value: 'tout' },
+        ))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('recompenses')
+        .setDescription('Top récompenses reçues')
+        .addStringOption(o => o.setName('periode').setDescription('Période').addChoices(
+          { name: 'Cette semaine', value: 'semaine' },
+          { name: 'Ce mois', value: 'mois' },
+          { name: 'Ce trimestre', value: 'trimestre' },
+          { name: 'Depuis toujours', value: 'tout' },
+        ))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('resume')
+        .setDescription('Résumé hebdomadaire de la guilde')
+    ),
+
+  // /donjon
+  new SlashCommandBuilder()
+    .setName('donjon')
+    .setDescription('Suivi de progression des donjons')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('fait')
+        .setDescription('Marquer un donjon comme complété')
+        .addStringOption(o => o.setName('nom').setDescription('Nom du donjon').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('retirer')
+        .setDescription('Retirer un donjon de ta progression')
+        .addStringOption(o => o.setName('nom').setDescription('Nom du donjon').setRequired(true).setAutocomplete(true))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('progression')
+        .setDescription('Voir ta progression donjon')
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('guilde')
+        .setDescription('Qui a fait ce donjon dans la guilde ?')
+        .addStringOption(o => o.setName('nom').setDescription('Nom du donjon').setRequired(true).setAutocomplete(true))
+    ),
+
+  // /xp
+  new SlashCommandBuilder()
+    .setName('xp')
+    .setDescription('Calculateur d\'XP')
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('personnage')
+        .setDescription('XP nécessaire entre deux niveaux personnage')
+        .addIntegerOption(o => o.setName('actuel').setDescription('Niveau actuel').setRequired(true).setMinValue(1).setMaxValue(200))
+        .addIntegerOption(o => o.setName('cible').setDescription('Niveau cible').setRequired(true).setMinValue(1).setMaxValue(200))
+    )
+    .addSubcommand((sub: SlashCommandSubcommandBuilder) =>
+      sub.setName('metier')
+        .setDescription('XP nécessaire entre deux niveaux métier')
+        .addIntegerOption(o => o.setName('actuel').setDescription('Niveau actuel').setRequired(true).setMinValue(1).setMaxValue(200))
+        .addIntegerOption(o => o.setName('cible').setDescription('Niveau cible').setRequired(true).setMinValue(1).setMaxValue(200))
+    ),
+
+  // /chasse
+  new SlashCommandBuilder()
+    .setName('chasse')
+    .setDescription('Assistant chasse au trésor')
+    .addIntegerOption(o => o.setName('x').setDescription('Position X').setRequired(true))
+    .addIntegerOption(o => o.setName('y').setDescription('Position Y').setRequired(true))
+    .addStringOption(o => o.setName('direction').setDescription('Direction (haut/bas/gauche/droite)').setRequired(true).addChoices(
+      { name: 'Haut', value: 'haut' },
+      { name: 'Bas', value: 'bas' },
+      { name: 'Gauche', value: 'gauche' },
+      { name: 'Droite', value: 'droite' },
+    )),
 
   // /export
   new SlashCommandBuilder()

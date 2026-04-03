@@ -32,6 +32,10 @@ import { handleRewardButton } from '../modules/F-rewards/buttons.js';
 import { handleRewardModal } from '../modules/F-rewards/modals.js';
 import { handleDemande } from '../modules/H-forum/commands.js';
 import { handleDemandeModal } from '../modules/H-forum/modals.js';
+import { handleClassement } from '../modules/I-leaderboard/commands.js';
+import { handleDonjon, handleDonjonAutocomplete } from '../modules/J-dungeons/commands.js';
+import { handleXp } from '../modules/K-tools/commands.js';
+import { handleChasse } from '../modules/K-tools/chasse.js';
 
 // Panel handlers
 import { handlePanneau } from '../modules/panel/commands.js';
@@ -50,6 +54,10 @@ const COMMAND_MODULE: Record<string, string> = {
   craft: 'E-professions',
   recompense: 'F-rewards',
   demande: 'H-forum',
+  classement: 'I-leaderboard',
+  donjon: 'J-dungeons',
+  xp: 'K-tools',
+  chasse: 'K-tools',
 };
 
 // Command → required permission level
@@ -197,6 +205,10 @@ async function handleCommand(interaction: ChatInputCommandInteraction): Promise<
     case 'craft': return handleCraft(interaction);
     case 'recompense': return handleRecompense(interaction);
     case 'demande': return handleDemande(interaction);
+    case 'classement': return handleClassement(interaction);
+    case 'donjon': return handleDonjon(interaction);
+    case 'xp': return handleXp(interaction);
+    case 'chasse': return handleChasse(interaction);
     case 'export': return handleExport(interaction);
     case 'admin': {
       const sub = interaction.options.getSubcommand();
@@ -295,6 +307,7 @@ async function handleAutocomplete(interaction: AutocompleteInteraction): Promise
     case 'dofus': return handleDofusAutocomplete(interaction);
     case 'metier':
     case 'craft': return handleMetierAutocomplete(interaction);
+    case 'donjon': return handleDonjonAutocomplete(interaction);
     default:
       await interaction.respond([]);
   }

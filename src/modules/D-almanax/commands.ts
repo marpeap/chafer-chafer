@@ -1,7 +1,8 @@
 import { ChatInputCommandInteraction, AutocompleteInteraction } from 'discord.js';
 import { getToday, getDate, getRange, getNextBonus, searchBonusTypes } from '../../integrations/almanax/client.js';
 import { buildAlmanaxEmbed, buildAlmanaxWeekEmbed } from './views.js';
-import { errorEmbed } from '../../views/base.js';
+import { db } from '../../core/database.js';
+import { errorEmbed, successEmbed } from '../../views/base.js';
 import { childLogger } from '../../core/logger.js';
 
 const log = childLogger('almanax:cmd');
@@ -16,6 +17,8 @@ export async function handleAlmanax(interaction: ChatInputCommandInteraction): P
       return handleBonus(interaction);
     case 'semaine':
       return handleSemaine(interaction);
+    case 'alerte':
+      return handleAlerte(interaction);
     case 'today':
     default:
       return handleToday(interaction);
@@ -132,4 +135,46 @@ async function handleSemaine(interaction: ChatInputCommandInteraction): Promise<
       embeds: [errorEmbed('Impossible de récupérer l\'almanax de la semaine.')],
     });
   }
+}
+
+// ────────────────── /almanax alerte <type> ──────────────────
+
+async function handleAlerte(interaction: ChatInputCommandInteraction): Promise<void> {
+  const guildId = interaction.guildId!;
+  const userId = interaction.user.id;
+  const bonusType = interaction.options.getString('type', true);
+
+  // Check if alert already exists
+  const existing = await db().almanaxAlert.findUnique({
+    where: { guildId_userId_bonusType: { guildId, userId, bonusType } },
+  });
+
+  if (existing) {
+    // Toggle off — remove alert
+    await db().almanaxAlert.delete({ where: { id: existing.id } });
+    await interaction.reply({
+      embeds: [successEmbed(`Alerte supprimée pour le bonus **${bonusType}**.`)],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Check limit (max 10 alerts per user per guild)
+  const count = await db().almanaxAlert.count({ where: { guildId, userId } });
+  if (count >= 10) {
+    await interaction.reply({
+      embeds: [errorEmbed('Tu as atteint la limite de 10 alertes. Supprime-en une d\'abord (reclique sur le même type).')],
+      ephemeral: true,
+    });
+    return;
+  }
+
+  await db().almanaxAlert.create({
+    data: { guildId, userId, bonusType },
+  });
+
+  await interaction.reply({
+    embeds: [successEmbed(`Alerte activée ! Tu seras mentionné quand le bonus **${bonusType}** sera actif.`)],
+    ephemeral: true,
+  });
 }

@@ -410,6 +410,35 @@ model LedgerEntry {
   @@map("ledger_entries")
 }
 
+// ==================== ALMANAX ALERTS (Feature: personal bonus alerts) ====================
+
+model AlmanaxAlert {
+  id        Int      @id @default(autoincrement())
+  guildId   String   @map("guild_id")
+  userId    String   @map("user_id")
+  bonusType String   @map("bonus_type") // bonus type ID from DofusDude API
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([guildId, userId, bonusType])
+  @@index([guildId])
+  @@map("almanax_alerts")
+}
+
+// ==================== DUNGEON PROGRESS (Feature: dungeon tracking) ====================
+
+model DungeonProgress {
+  id          Int      @id @default(autoincrement())
+  guildId     String   @map("guild_id")
+  userId      String   @map("user_id")
+  dungeonName String   @map("dungeon_name")
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  @@unique([guildId, userId, dungeonName])
+  @@index([guildId, dungeonName])
+  @@map("dungeon_progress")
+}
+
 // ==================== FORUM REQUESTS (Module H) ====================
 
 model ForumRequest {
