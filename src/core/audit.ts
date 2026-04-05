@@ -1,3 +1,14 @@
+/**
+ * @module core/audit
+ * @description Centralized audit logging: persists to DB and posts to the guild's #logs-bot channel.
+ *
+ * Every significant user action (member approval, reward creation, activity signup, etc.)
+ * calls audit() to create a traceable log entry.
+ *
+ * Used by: services/member, services/reward, A-members/modals, B-activities/modals, E-professions/modals
+ * Depends on: core/database, core/client, views/base (Colors)
+ */
+
 import { TextChannel, EmbedBuilder } from 'discord.js';
 import { db } from './database.js';
 import { discordClient } from './client.js';
@@ -6,7 +17,7 @@ import { Colors } from '../views/base.js';
 
 const log = childLogger('audit');
 
-interface AuditEntry {
+export interface AuditEntry {
   guildId: string;
   actorId: string;
   action: string;
@@ -15,6 +26,12 @@ interface AuditEntry {
   details?: Record<string, unknown>;
 }
 
+/**
+ * Write an audit log entry to the database and post a summary embed
+ * to the guild's configured log channel (if any).
+ *
+ * Silently catches errors — audit failures should never break the main flow.
+ */
 export async function audit(entry: AuditEntry): Promise<void> {
   try {
     await db().auditLog.create({

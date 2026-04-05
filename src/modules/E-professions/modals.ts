@@ -1,34 +1,22 @@
+/**
+ * @module E-professions/modals
+ * @description Handles modal submissions for profession enrollment and craft requests.
+ *
+ * Flow (inscription): modal → canonicalize profession → upsert DB → reply
+ * Flow (craft): modal → create request → enrich from DofusDude API → post to channel → reply
+ *
+ * Depends on: core/database, validators/profession, integrations/dofusdude, E-professions/views
+ */
+
 import { ModalSubmitInteraction, TextChannel } from 'discord.js';
 import { db } from '../../core/database.js';
 import { childLogger } from '../../core/logger.js';
 import { successEmbed, errorEmbed } from '../../views/base.js';
 import { buildCraftRequestEmbed, buildCraftRequestRow } from './views.js';
 import { searchGlobal } from '../../integrations/dofusdude/client.js';
-import { PROFESSIONS } from './commands.js';
+import { canonicalizeProfession } from '../../validators/profession.validator.js';
 
 const log = childLogger('E-professions:modals');
-
-/** Normalize string for fuzzy matching: strip accents, apostrophes, collapse spaces */
-function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[''`]/g, '')
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .trim();
-}
-
-const PROFESSIONS_NORMALIZED = PROFESSIONS.map((p) => normalizeForMatch(p));
-
-/** Try to match user input to a canonical profession name. Returns canonical or original. */
-function canonicalizeProfession(input: string): string {
-  const norm = normalizeForMatch(input);
-  let idx = PROFESSIONS_NORMALIZED.indexOf(norm);
-  if (idx === -1) idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.startsWith(norm) || norm.startsWith(p));
-  if (idx === -1) idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.includes(norm) || norm.includes(p));
-  return idx !== -1 ? PROFESSIONS[idx] : input;
-}
 
 export async function handleProfessionModal(interaction: ModalSubmitInteraction): Promise<void> {
   switch (interaction.customId) {

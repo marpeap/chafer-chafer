@@ -1,20 +1,31 @@
+/**
+ * @module F-rewards/modals
+ * @description Handles the reward creation modal. Parses input, resolves recipient,
+ * delegates creation to reward.service, then posts the reward card.
+ *
+ * Flow: parse fields → resolve member → service.createReward → post embed → save message ref
+ *
+ * Depends on: services/reward, core/resolve-member, core/permissions, F-rewards/views
+ */
+
 import { ModalSubmitInteraction, TextChannel, GuildMember } from 'discord.js';
-import { db } from '../../core/database.js';
-import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
 import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
-import { errorEmbed, successEmbed, noPermissionEmbed } from '../../views/base.js';
+import { errorEmbed, noPermissionEmbed } from '../../views/base.js';
 import { buildRewardCard } from './views.js';
 import { resolveMember } from '../../core/resolve-member.js';
+import { createReward, saveRewardMessageRef } from '../../services/reward.service.js';
 
 const log = childLogger('F-rewards:modals');
 
+/** Handle the "recompense_creer" modal submission */
 export async function handleRewardModal(interaction: ModalSubmitInteraction): Promise<void> {
   if (interaction.customId !== 'recompense_creer') return;
 
   const guildId = interaction.guildId;
   if (!guildId) return;
 
+  // Permission check: officers only
   const member = interaction.member as GuildMember;
   const level = await getMemberLevel(member);
   if (!requireLevel(PermissionLevel.OFFICER, level)) {
@@ -24,12 +35,13 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
 
   await interaction.deferReply();
 
+  // Parse modal fields
   const recipientRaw = interaction.fields.getTextInputValue('recipient').trim();
   const title = interaction.fields.getTextInputValue('title').trim();
   const amount = interaction.fields.getTextInputValue('amount').trim() || null;
   const reason = interaction.fields.getTextInputValue('reason').trim() || null;
 
-  // Resolve recipient: supports @pseudo, raw ID, or <@id>
+  // Resolve recipient by @pseudo, raw ID, or <@id>
   const recipient = interaction.guild
     ? await resolveMember(interaction.guild, recipientRaw)
     : null;
@@ -39,68 +51,31 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
     });
     return;
   }
-  const recipientId = recipient.id;
 
   try {
-    // Create reward in DB
-    const reward = await db().reward.create({
-      data: {
-        guildId,
-        createdBy: interaction.user.id,
-        recipientId,
-        title,
-        amount,
-        reason,
-        status: 'claimable',
-      },
+    // Delegate creation to service (DB + ledger + audit)
+    const result = await createReward({
+      guildId,
+      createdBy: interaction.user.id,
+      recipientId: recipient.id,
+      title,
+      amount,
+      reason,
     });
 
-    // Create ledger entry
-    await db().ledgerEntry.create({
-      data: {
-        guildId,
-        rewardId: reward.id,
-        actorId: interaction.user.id,
-        action: 'created',
-        fromStatus: null,
-        toStatus: 'claimable',
-      },
-    });
+    if (!result.success || !result.reward) {
+      await interaction.editReply({ embeds: [errorEmbed(result.error ?? 'Erreur inconnue.')] });
+      return;
+    }
 
-    // Post reward card to the current channel
-    const { embeds, components } = buildRewardCard(reward);
+    // Post reward card to Discord
+    const { embeds, components } = buildRewardCard(result.reward);
     const message = await interaction.editReply({ embeds, components });
 
-    // Save message reference for future updates
-    const messageId = message.id;
-    const channelId = interaction.channelId!;
+    // Save Discord message reference for future updates
+    await saveRewardMessageRef(guildId, result.reward.id, interaction.channelId!, message.id);
 
-    await db().reward.update({
-      where: { id: reward.id },
-      data: { messageId, channelId },
-    });
-
-    await db().discordMessageMap.create({
-      data: {
-        guildId,
-        channelId,
-        messageId,
-        entityType: 'reward',
-        entityId: reward.id,
-      },
-    });
-
-    // Audit log
-    await audit({
-      guildId,
-      actorId: interaction.user.id,
-      action: 'reward.created',
-      targetType: 'reward',
-      targetId: String(reward.id),
-      details: { title, recipientId, amount, reason },
-    });
-
-    log.info({ rewardId: reward.id, guildId, recipientId }, 'Reward created');
+    log.info({ rewardId: result.reward.id, guildId, recipientId: recipient.id }, 'Reward created');
   } catch (err) {
     log.error({ err }, 'Failed to create reward');
     await interaction.editReply({

@@ -1,3 +1,14 @@
+/**
+ * @module F-rewards/commands
+ * @description Slash command handlers for /recompense: creer, liste, payer, annuler.
+ *
+ * "creer" opens a modal (handled by F-rewards/modals.ts).
+ * "liste" is a read-only query.
+ * "payer" and "annuler" delegate state transitions to reward.service.
+ *
+ * Depends on: services/reward, core/database (for read-only queries), F-rewards/views
+ */
+
 import {
   ChatInputCommandInteraction,
   ModalBuilder,
@@ -7,10 +18,10 @@ import {
   ModalActionRowComponentBuilder,
 } from 'discord.js';
 import { db } from '../../core/database.js';
-import { audit } from '../../core/audit.js';
 import { childLogger } from '../../core/logger.js';
 import { successEmbed, errorEmbed } from '../../views/base.js';
 import { buildRewardListEmbed, buildRewardEmbed } from './views.js';
+import { payReward, cancelReward } from '../../services/reward.service.js';
 
 const log = childLogger('F-rewards:commands');
 
@@ -98,61 +109,26 @@ async function handleListe(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ────────────────── /recompense payer <id> ──────────────────
 
+/** Pay a reward — delegates state transition to reward.service */
 async function handlePayer(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
   const rewardId = interaction.options.getInteger('id', true);
 
-  const reward = await db().reward.findFirst({
-    where: { id: rewardId, guildId },
-  });
+  const result = await payReward(guildId, rewardId, interaction.user.id);
 
-  if (!reward) {
-    await interaction.reply({ embeds: [errorEmbed(`Recompense #${rewardId} introuvable.`)], ephemeral: true });
+  if (!result.success) {
+    await interaction.reply({ embeds: [errorEmbed(result.error!)], ephemeral: true });
     return;
   }
 
-  if (reward.status !== 'claimed') {
-    await interaction.reply({
-      embeds: [errorEmbed(`Cette recompense ne peut pas etre payee (statut actuel : ${reward.status}). Le destinataire doit d'abord la reclamer.`)],
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const previousStatus = reward.status;
-
-  const updated = await db().reward.update({
-    where: { id: rewardId },
-    data: { status: 'paid', paidAt: new Date() },
-  });
-
-  await db().ledgerEntry.create({
-    data: {
-      guildId,
-      rewardId: reward.id,
-      actorId: interaction.user.id,
-      action: 'paid',
-      fromStatus: previousStatus,
-      toStatus: 'paid',
-    },
-  });
-
-  await audit({
-    guildId,
-    actorId: interaction.user.id,
-    action: 'reward.paid',
-    targetType: 'reward',
-    targetId: String(rewardId),
-    details: { title: reward.title, recipientId: reward.recipientId, amount: reward.amount },
-  });
-
-  // Update original message if exists
+  // Update original Discord message embed if it exists
+  const reward = result.reward!;
   if (reward.channelId && reward.messageId) {
     try {
       const channel = interaction.guild?.channels.cache.get(reward.channelId);
       if (channel && 'messages' in channel) {
         const msg = await (channel as import('discord.js').TextChannel).messages.fetch(reward.messageId);
-        const embed = buildRewardEmbed(updated);
+        const embed = buildRewardEmbed(reward);
         await msg.edit({ embeds: [embed], components: [] });
       }
     } catch (err) {
@@ -168,61 +144,26 @@ async function handlePayer(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ────────────────── /recompense annuler <id> ──────────────────
 
+/** Cancel a reward — delegates state transition to reward.service */
 async function handleAnnuler(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
   const rewardId = interaction.options.getInteger('id', true);
 
-  const reward = await db().reward.findFirst({
-    where: { id: rewardId, guildId },
-  });
+  const result = await cancelReward(guildId, rewardId, interaction.user.id);
 
-  if (!reward) {
-    await interaction.reply({ embeds: [errorEmbed(`Recompense #${rewardId} introuvable.`)], ephemeral: true });
+  if (!result.success) {
+    await interaction.reply({ embeds: [errorEmbed(result.error!)], ephemeral: true });
     return;
   }
 
-  if (reward.status !== 'pending' && reward.status !== 'claimable') {
-    await interaction.reply({
-      embeds: [errorEmbed(`Cette recompense ne peut pas etre annulee (statut actuel : ${reward.status}).`)],
-      ephemeral: true,
-    });
-    return;
-  }
-
-  const previousStatus = reward.status;
-
-  const updated = await db().reward.update({
-    where: { id: rewardId },
-    data: { status: 'cancelled' },
-  });
-
-  await db().ledgerEntry.create({
-    data: {
-      guildId,
-      rewardId: reward.id,
-      actorId: interaction.user.id,
-      action: 'cancelled',
-      fromStatus: previousStatus,
-      toStatus: 'cancelled',
-    },
-  });
-
-  await audit({
-    guildId,
-    actorId: interaction.user.id,
-    action: 'reward.cancelled',
-    targetType: 'reward',
-    targetId: String(rewardId),
-    details: { title: reward.title, recipientId: reward.recipientId },
-  });
-
-  // Update original message if exists
+  // Update original Discord message embed if it exists
+  const reward = result.reward!;
   if (reward.channelId && reward.messageId) {
     try {
       const channel = interaction.guild?.channels.cache.get(reward.channelId);
       if (channel && 'messages' in channel) {
         const msg = await (channel as import('discord.js').TextChannel).messages.fetch(reward.messageId);
-        const embed = buildRewardEmbed(updated);
+        const embed = buildRewardEmbed(reward);
         await msg.edit({ embeds: [embed], components: [] });
       }
     } catch (err) {

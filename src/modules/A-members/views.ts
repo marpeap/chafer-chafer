@@ -9,8 +9,21 @@ import {
   ModalActionRowComponentBuilder,
   GuildMember,
 } from 'discord.js';
+/**
+ * @module A-members/views
+ * @description Discord embed builders for member profiles and pending requests.
+ *
+ * Pure display layer — no database calls, no side effects.
+ *
+ * Used by: A-members/buttons.ts, A-members/modals.ts, panel/modals.ts (admin profil)
+ * Depends on: views/base (shared embed utilities), services/member (ProfileStats type)
+ */
+
 import { baseEmbed, Colors, Emoji, truncate, formatDate } from '../../views/base.js';
 import type { PlayerProfile } from '@prisma/client';
+import type { ProfileStats } from '../../services/member.service.js';
+
+export type { ProfileStats };
 
 // ────────────────── Color mapping ──────────────────
 
@@ -25,16 +38,6 @@ const ORIENTATION_LABELS: Record<string, string> = {
   pvp: 'PvP',
   both: 'Les deux',
 };
-
-// ────────────────── Profile stats ──────────────────
-
-export interface ProfileStats {
-  activityCount: number;
-  quickCallCount: number;
-  craftsMade: number;
-  craftsFulfilled: number;
-  rewardsPaid: number;
-}
 
 // ────────────────── Profile embed ──────────────────
 

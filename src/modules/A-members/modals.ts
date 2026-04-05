@@ -1,3 +1,12 @@
+/**
+ * @module A-members/modals
+ * @description Handles modal submissions for member profiles: creation, editing, professions200.
+ *
+ * Flow: user fills modal → parse fields → validate → upsert DB → notify officers (create) or reply (edit)
+ *
+ * Depends on: core/database, core/audit, validators/profession, A-members/views
+ */
+
 import { ModalSubmitInteraction, TextChannel, GuildMember } from 'discord.js';
 import { db } from '../../core/database.js';
 import { audit } from '../../core/audit.js';
@@ -5,22 +14,9 @@ import { childLogger } from '../../core/logger.js';
 import { successEmbed, errorEmbed } from '../../views/base.js';
 import { buildPendingRequestEmbed, buildPendingRequestButtons } from './views.js';
 import { PROFESSIONS } from '../E-professions/commands.js';
+import { validateProfessionList } from '../../validators/profession.validator.js';
 
 const log = childLogger('A-members:modals');
-
-/** Strip accents, apostrophes, and normalize whitespace for fuzzy matching */
-function normalizeForMatch(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '') // strip combining diacriticals
-    .replace(/[''`]/g, '')           // strip apostrophes
-    .replace(/\s+/g, ' ')           // collapse whitespace
-    .toLowerCase()
-    .trim();
-}
-
-// Normalized profession names for fuzzy matching
-const PROFESSIONS_NORMALIZED = PROFESSIONS.map((p) => normalizeForMatch(p));
 
 export async function handleMemberModal(interaction: ModalSubmitInteraction): Promise<void> {
   switch (interaction.customId) {
@@ -254,34 +250,8 @@ async function handleProfessions200Edit(interaction: ModalSubmitInteraction): Pr
     return;
   }
 
-  // Parse: comma or newline separated
-  const parsed = raw
-    .split(/[,\n]+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  // Validate each against known professions (accent-insensitive, apostrophe-insensitive)
-  const invalid: string[] = [];
-  const validated: string[] = [];
-
-  for (const entry of parsed) {
-    const norm = normalizeForMatch(entry);
-    // Try exact normalized match first
-    let idx = PROFESSIONS_NORMALIZED.indexOf(norm);
-    // Fallback: try startsWith match (e.g. "forgeur dagues" → "Forgeur de Dagues")
-    if (idx === -1) {
-      idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.startsWith(norm) || norm.startsWith(p));
-    }
-    // Fallback: try contains match (e.g. "dagues" → "Forgeur de Dagues")
-    if (idx === -1) {
-      idx = PROFESSIONS_NORMALIZED.findIndex((p) => p.includes(norm) || norm.includes(p));
-    }
-    if (idx === -1) {
-      invalid.push(entry);
-    } else {
-      validated.push(PROFESSIONS[idx]);
-    }
-  }
+  // Validate against known DOFUS professions (fuzzy matching)
+  const { valid: unique, invalid } = validateProfessionList(raw);
 
   if (invalid.length > 0) {
     await interaction.reply({
@@ -294,8 +264,6 @@ async function handleProfessions200Edit(interaction: ModalSubmitInteraction): Pr
     return;
   }
 
-  // Deduplicate
-  const unique = [...new Set(validated)];
   const stored = unique.join(', ');
 
   await db().playerProfile.update({

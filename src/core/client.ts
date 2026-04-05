@@ -1,3 +1,14 @@
+/**
+ * @module core/client
+ * @description Discord.js client singleton — initialization, login, and graceful shutdown.
+ *
+ * Configured intents: Guilds, GuildMembers, GuildPresences, GuildMessages,
+ * GuildScheduledEvents, MessageContent.
+ * Partials: GuildMember, Channel (needed for uncached member/channel events).
+ *
+ * Used by: index.ts (boot), core/audit, core/resolve-member, events/, modules/
+ */
+
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { env } from '../config/env.js';
 import { childLogger } from './logger.js';

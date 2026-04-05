@@ -1,3 +1,15 @@
+/**
+ * @module B-activities/buttons
+ * @description Handles button interactions for activities: type selection, signup toggle,
+ * LFG responses, reward release, and search cancellation.
+ *
+ * Signup toggle: join/maybe/unavailable → upsert or delete ActivitySignup → refresh embed
+ * LFG response: partant/lead/pass → upsert or delete QuickCallResponse → auto-fill check → refresh embed
+ * Reward release: create rewards for all confirmed participants (transaction) → audit
+ *
+ * Depends on: core/database, core/audit, core/permissions, B-activities/views
+ */
+
 import {
   ButtonInteraction,
   TextChannel,
