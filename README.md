@@ -1,4 +1,4 @@
-# Chafer Chafer — Guide Administrateur
+# Chafer Bot — Guide Administrateur
 
 > Bot Discord de guilde DOFUS
 > Concu par **Marpeap** & **Claude** (Anthropic) — [marpeap.com](https://marpeap.com)
