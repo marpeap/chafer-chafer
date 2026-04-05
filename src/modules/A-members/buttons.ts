@@ -148,7 +148,7 @@ async function handleEditProfessions200(interaction: ButtonInteraction): Promise
 
 // ────────────────── Approve ──────────────────
 
-/** Approve a pending member profile — delegates logic to member.service */
+/** Approuver un profil membre en attente — delegue la logique a member.service */
 async function handleApprove(interaction: ButtonInteraction, profileId: number): Promise<void> {
   if (isNaN(profileId)) {
     await interaction.reply({ embeds: [errorEmbed('ID de profil invalide.')], ephemeral: true });
@@ -165,19 +165,22 @@ async function handleApprove(interaction: ButtonInteraction, profileId: number):
     return;
   }
 
+  // Acquitter l'interaction immediatement pour eviter le timeout 3s Discord
+  await interaction.deferUpdate();
+
   const guildId = interaction.guildId!;
 
-  // Delegate business logic to service
+  // Deleguer la logique metier au service
   const result = await approveMember(guildId, profileId, interaction.user.id);
   if (!result.success) {
-    await interaction.reply({ embeds: [errorEmbed(result.error!)], ephemeral: true });
+    await interaction.followUp({ embeds: [errorEmbed(result.error!)], ephemeral: true });
     return;
   }
 
-  // Discord-specific: fetch profile for userId (needed for role + DM)
+  // Discord : recuperer le profil pour l'userId (necessaire pour role + DM)
   const profile = await db().playerProfile.findFirst({ where: { id: profileId, guildId } });
 
-  // Assign guild role if configured
+  // Attribuer le role de guilde si configure
   if (result.memberRoleId && profile) {
     try {
       const targetMember = await interaction.guild?.members.fetch(profile.userId);
@@ -187,7 +190,7 @@ async function handleApprove(interaction: ButtonInteraction, profileId: number):
     }
   }
 
-  // DM the user
+  // Envoyer un DM a l'utilisateur
   if (profile) {
     try {
       const user = await interaction.client.users.fetch(profile.userId);
@@ -197,7 +200,7 @@ async function handleApprove(interaction: ButtonInteraction, profileId: number):
     }
   }
 
-  // Update the admin message embed
+  // Mettre a jour l'embed du message officier
   const originalEmbed = interaction.message.embeds[0];
   const updatedEmbeds = originalEmbed
     ? [EmbedBuilder.from(originalEmbed)
@@ -205,12 +208,12 @@ async function handleApprove(interaction: ButtonInteraction, profileId: number):
         .setFooter({ text: `\u2705 Valid\u00e9 par ${interaction.user.displayName}` })]
     : [];
 
-  await interaction.update({ embeds: updatedEmbeds, components: [] });
+  await interaction.editReply({ embeds: updatedEmbeds, components: [] });
 }
 
 // ────────────────── Reject ──────────────────
 
-/** Reject a pending member profile — delegates logic to member.service */
+/** Refuser un profil membre en attente — delegue la logique a member.service */
 async function handleReject(interaction: ButtonInteraction, profileId: number): Promise<void> {
   if (isNaN(profileId)) {
     await interaction.reply({ embeds: [errorEmbed('ID de profil invalide.')], ephemeral: true });
@@ -227,16 +230,19 @@ async function handleReject(interaction: ButtonInteraction, profileId: number): 
     return;
   }
 
+  // Acquitter l'interaction immediatement pour eviter le timeout 3s Discord
+  await interaction.deferUpdate();
+
   const guildId = interaction.guildId!;
 
-  // Delegate business logic to service
+  // Deleguer la logique metier au service
   const result = await rejectMember(guildId, profileId, interaction.user.id);
   if (!result.success) {
-    await interaction.reply({ embeds: [errorEmbed(result.error!)], ephemeral: true });
+    await interaction.followUp({ embeds: [errorEmbed(result.error!)], ephemeral: true });
     return;
   }
 
-  // DM the user
+  // Envoyer un DM a l'utilisateur
   const profile = await db().playerProfile.findFirst({ where: { id: profileId, guildId } });
   if (profile) {
     try {
@@ -247,7 +253,7 @@ async function handleReject(interaction: ButtonInteraction, profileId: number): 
     }
   }
 
-  // Update the admin message embed
+  // Mettre a jour l'embed du message officier
   const originalEmbed = interaction.message.embeds[0];
   const updatedEmbeds = originalEmbed
     ? [EmbedBuilder.from(originalEmbed)
@@ -255,7 +261,7 @@ async function handleReject(interaction: ButtonInteraction, profileId: number): 
         .setFooter({ text: `\u274C Refus\u00e9 par ${interaction.user.displayName}` })]
     : [];
 
-  await interaction.update({ embeds: updatedEmbeds, components: [] });
+  await interaction.editReply({ embeds: updatedEmbeds, components: [] });
 }
 
 /** Toggle "Glandeur Dispo" — delegates logic to member.service */

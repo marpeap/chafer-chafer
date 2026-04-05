@@ -14,6 +14,7 @@ import { childLogger } from '../../core/logger.js';
 import { getMemberLevel, requireLevel, PermissionLevel } from '../../core/permissions.js';
 import { baseEmbed, errorEmbed, successEmbed, Colors, Emoji, truncate, discordTimestamp } from '../../views/base.js';
 import { buildProfileEmbed } from '../A-members/views.js';
+import { resolveMember } from '../../core/resolve-member.js';
 
 const log = childLogger('admin:members');
 
@@ -420,18 +421,24 @@ export async function handleAdminMemberModal(interaction: ModalSubmitInteraction
 
   if (customId === 'admin:modal_historique') {
     const userInput = interaction.fields.getTextInputValue('user_id').trim();
-    // Extract user ID from mention (<@123>) or raw ID
-    const userId = userInput.replace(/[<@!>]/g, '');
 
-    if (!userId || !/^\d{17,20}$/.test(userId)) {
-      await interaction.reply({
-        embeds: [errorEmbed('ID utilisateur invalide. Utilise un ID Discord (ex: 123456789012345678) ou une mention.')],
-        ephemeral: true,
+    if (!interaction.guild) {
+      await interaction.reply({ embeds: [errorEmbed('Cette commande ne fonctionne que dans un serveur.')], ephemeral: true });
+      return;
+    }
+
+    // Resoudre le membre : supporte @pseudo, pseudo, ID brut, <@ID>
+    await interaction.deferReply({ ephemeral: true });
+    const member = await resolveMember(interaction.guild, userInput);
+
+    if (!member) {
+      await interaction.editReply({
+        embeds: [errorEmbed(`Membre introuvable pour "${userInput}". Utilise un @pseudo, un nom d'affichage ou un ID Discord.`)],
       });
       return;
     }
 
-    await handleAdminHistorique(interaction, userId);
+    await handleAdminHistorique(interaction, member.id);
     return;
   }
 
