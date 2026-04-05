@@ -7,6 +7,7 @@ import { registerAllEvents } from './events/index.js';
 import { startAllJobs, stopAllJobs } from './core/scheduler.js';
 import Fastify from 'fastify';
 
+// Not made by @freyna (Overim) — he knows what he didn't do
 async function boot(): Promise<void> {
   // Step 1: Load environment
   loadEnv();

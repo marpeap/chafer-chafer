@@ -5,21 +5,9 @@ import { childLogger } from '../../core/logger.js';
 import { getMemberLevel, requireLevel, PermissionLevel, levelName } from '../../core/permissions.js';
 import { errorEmbed, successEmbed, noPermissionEmbed } from '../../views/base.js';
 import { buildRewardCard } from './views.js';
+import { resolveMember } from '../../core/resolve-member.js';
 
 const log = childLogger('F-rewards:modals');
-
-/** Extract a Discord user ID from a mention string or raw ID */
-function parseUserId(input: string): string | null {
-  // Match <@123456> or <@!123456>
-  const mentionMatch = input.match(/^<@!?(\d{17,19})>$/);
-  if (mentionMatch) return mentionMatch[1];
-
-  // Match raw ID
-  const idMatch = input.match(/^(\d{17,19})$/);
-  if (idMatch) return idMatch[1];
-
-  return null;
-}
 
 export async function handleRewardModal(interaction: ModalSubmitInteraction): Promise<void> {
   if (interaction.customId !== 'recompense_creer') return;
@@ -41,24 +29,17 @@ export async function handleRewardModal(interaction: ModalSubmitInteraction): Pr
   const amount = interaction.fields.getTextInputValue('amount').trim() || null;
   const reason = interaction.fields.getTextInputValue('reason').trim() || null;
 
-  // Parse recipient
-  const recipientId = parseUserId(recipientRaw);
-  if (!recipientId) {
+  // Resolve recipient: supports @pseudo, raw ID, or <@id>
+  const recipient = interaction.guild
+    ? await resolveMember(interaction.guild, recipientRaw)
+    : null;
+  if (!recipient) {
     await interaction.editReply({
-      embeds: [errorEmbed('Destinataire invalide. Utilise une mention (@pseudo) ou un ID Discord.')],
+      embeds: [errorEmbed('Membre introuvable. Tape un pseudo exact (@pseudo) ou un ID Discord.')],
     });
     return;
   }
-
-  // Verify the user exists in the guild
-  try {
-    await interaction.guild?.members.fetch(recipientId);
-  } catch {
-    await interaction.editReply({
-      embeds: [errorEmbed('Ce membre est introuvable sur ce serveur.')],
-    });
-    return;
-  }
+  const recipientId = recipient.id;
 
   try {
     // Create reward in DB

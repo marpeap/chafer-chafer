@@ -1,6 +1,7 @@
 import { ModalSubmitInteraction } from 'discord.js';
 import { childLogger } from '../../core/logger.js';
 import { errorEmbed, successEmbed } from '../../views/base.js';
+import { resolveMember } from '../../core/resolve-member.js';
 
 // Reuse existing module logic
 import * as dofusdude from '../../integrations/dofusdude/client.js';
@@ -415,23 +416,24 @@ async function handleAlmanaxAlerteModal(interaction: ModalSubmitInteraction): Pr
 async function handleAdminProfilModal(interaction: ModalSubmitInteraction): Promise<void> {
   await interaction.deferReply({ ephemeral: true });
 
-  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  const rawInput = interaction.fields.getTextInputValue('user_id').trim();
   try {
     const { buildProfileEmbed } = await import('../A-members/views.js');
-    const { discordClient } = await import('../../core/client.js');
-    const profile = await db().playerProfile.findFirst({
-      where: { guildId: interaction.guildId!, userId: rawId },
-    });
 
-    if (!profile) {
-      await interaction.editReply({ embeds: [errorEmbed(`Aucun profil trouvé pour <@${rawId}>.`)] });
+    const member = interaction.guild
+      ? await resolveMember(interaction.guild, rawInput)
+      : null;
+    if (!member) {
+      await interaction.editReply({ embeds: [errorEmbed(`Membre introuvable : \`${rawInput}\`. Tape un pseudo exact ou un ID.`)] });
       return;
     }
 
-    const guild = await discordClient().guilds.fetch(interaction.guildId!);
-    const member = await guild.members.fetch(rawId).catch(() => null);
-    if (!member) {
-      await interaction.editReply({ embeds: [errorEmbed(`Membre <@${rawId}> introuvable sur le serveur.`)] });
+    const profile = await db().playerProfile.findFirst({
+      where: { guildId: interaction.guildId!, userId: member.id },
+    });
+
+    if (!profile) {
+      await interaction.editReply({ embeds: [errorEmbed(`Aucun profil trouvé pour <@${member.id}>.`)] });
       return;
     }
 
@@ -444,11 +446,21 @@ async function handleAdminProfilModal(interaction: ModalSubmitInteraction): Prom
 }
 
 async function handleAdminNoteModal(interaction: ModalSubmitInteraction): Promise<void> {
-  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  const rawInput = interaction.fields.getTextInputValue('user_id').trim();
   const texte = interaction.fields.getTextInputValue('texte').trim();
 
   if (!texte) {
     await interaction.reply({ embeds: [errorEmbed('Texte de la note vide.')], ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = interaction.guild
+    ? await resolveMember(interaction.guild, rawInput)
+    : null;
+  if (!member) {
+    await interaction.editReply({ embeds: [errorEmbed(`Membre introuvable : \`${rawInput}\`. Tape un pseudo exact ou un ID.`)] });
     return;
   }
 
@@ -459,26 +471,35 @@ async function handleAdminNoteModal(interaction: ModalSubmitInteraction): Promis
       actorId: interaction.user.id,
       action: 'admin.note',
       targetType: 'user',
-      targetId: rawId,
+      targetId: member.id,
       details: { note: texte },
     });
 
-    await interaction.reply({
-      embeds: [successEmbed(`Note ajoutée pour <@${rawId}>.`)],
-      ephemeral: true,
+    await interaction.editReply({
+      embeds: [successEmbed(`Note ajoutée pour <@${member.id}>.`)],
     });
   } catch (err) {
     log.error({ err }, 'handleAdminNoteModal error');
-    await interaction.reply({ embeds: [errorEmbed('Erreur lors de l\'ajout de la note.')], ephemeral: true }).catch(() => {});
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de l\'ajout de la note.')] });
   }
 }
 
 async function handleAdminWarnModal(interaction: ModalSubmitInteraction): Promise<void> {
-  const rawId = interaction.fields.getTextInputValue('user_id').trim().replace(/[<@!>]/g, '');
+  const rawInput = interaction.fields.getTextInputValue('user_id').trim();
   const raison = interaction.fields.getTextInputValue('raison').trim();
 
   if (!raison) {
     await interaction.reply({ embeds: [errorEmbed('Raison de l\'avertissement vide.')], ephemeral: true });
+    return;
+  }
+
+  await interaction.deferReply({ ephemeral: true });
+
+  const member = interaction.guild
+    ? await resolveMember(interaction.guild, rawInput)
+    : null;
+  if (!member) {
+    await interaction.editReply({ embeds: [errorEmbed(`Membre introuvable : \`${rawInput}\`. Tape un pseudo exact ou un ID.`)] });
     return;
   }
 
@@ -489,25 +510,22 @@ async function handleAdminWarnModal(interaction: ModalSubmitInteraction): Promis
       actorId: interaction.user.id,
       action: 'admin.warn',
       targetType: 'user',
-      targetId: rawId,
+      targetId: member.id,
       details: { reason: raison },
     });
 
     // Try to DM the user
     try {
-      const { discordClient } = await import('../../core/client.js');
-      const user = await discordClient().users.fetch(rawId);
-      await user.send(`⚠️ Tu as reçu un avertissement sur le serveur : **${raison}**`);
+      await member.send(`⚠️ Tu as reçu un avertissement sur le serveur : **${raison}**`);
     } catch {
       // DM failed (user has DMs disabled), that's OK
     }
 
-    await interaction.reply({
-      embeds: [successEmbed(`Avertissement envoyé à <@${rawId}>.\nRaison : ${raison}`)],
-      ephemeral: true,
+    await interaction.editReply({
+      embeds: [successEmbed(`Avertissement envoyé à <@${member.id}>.\nRaison : ${raison}`)],
     });
   } catch (err) {
     log.error({ err }, 'handleAdminWarnModal error');
-    await interaction.reply({ embeds: [errorEmbed('Erreur lors de l\'avertissement.')], ephemeral: true }).catch(() => {});
+    await interaction.editReply({ embeds: [errorEmbed('Erreur lors de l\'avertissement.')] });
   }
 }
