@@ -1,19 +1,19 @@
 /**
  * @module validators/profession
- * @description Shared profession name validation and fuzzy matching for DOFUS professions.
+ * @description Validation et correspondance floue des noms de metiers DOFUS, partagee entre modules.
  *
- * Used by:
- *   - A-members/modals.ts (professions200 edit — validate user input)
- *   - E-professions/modals.ts (profession enrollment + craft requests)
- *   - panel/modals.ts (metier search)
+ * Utilise par :
+ *   - A-members/modals.ts (edition professions200 — validation de la saisie utilisateur)
+ *   - E-professions/modals.ts (inscription metier + demandes de craft)
+ *   - panel/modals.ts (recherche metier)
  *
- * Depends on: E-professions/commands.ts (canonical PROFESSIONS list)
+ * Depend de : E-professions/commands.ts (liste canonique PROFESSIONS)
  */
 
 import { PROFESSIONS } from '../modules/E-professions/commands.js';
 
 /**
- * Strip accents, apostrophes, and normalize whitespace for fuzzy matching.
+ * Retire les accents, apostrophes et normalise les espaces pour la correspondance floue.
  * "Forgeur d'Épées" → "forgeur depees"
  */
 export function normalizeForMatch(s: string): string {
@@ -26,18 +26,18 @@ export function normalizeForMatch(s: string): string {
     .trim();
 }
 
-/** Pre-computed normalized profession names for O(1) comparison */
+/** Noms de metiers normalises pre-calcules pour une comparaison en O(1) */
 const PROFESSIONS_NORMALIZED = PROFESSIONS.map((p) => normalizeForMatch(p));
 
 /**
- * Match user input to a canonical DOFUS profession name.
+ * Fait correspondre la saisie utilisateur a un nom canonique de metier DOFUS.
  *
- * Matching strategy (in priority order):
- *   1. Exact match after normalization
- *   2. Prefix match (either direction)
- *   3. Contains match (either direction)
+ * Strategie de correspondance (par ordre de priorite) :
+ *   1. Correspondance exacte apres normalisation
+ *   2. Correspondance par prefixe (dans les deux sens)
+ *   3. Correspondance par inclusion (dans les deux sens)
  *
- * @returns Canonical profession name, or the original input if no match found
+ * @returns Nom canonique du metier, ou la saisie originale si aucune correspondance
  */
 export function canonicalizeProfession(input: string): string {
   const norm = normalizeForMatch(input);
@@ -48,9 +48,9 @@ export function canonicalizeProfession(input: string): string {
 }
 
 /**
- * Validate a comma/newline-separated list of profession names.
+ * Valide une liste de noms de metiers separes par des virgules ou retours a la ligne.
  *
- * @returns Object with validated canonical names and any invalid entries
+ * @returns Objet contenant les noms canoniques valides et les entrees invalides
  */
 export function validateProfessionList(raw: string): { valid: string[]; invalid: string[] } {
   const parsed = raw

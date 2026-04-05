@@ -1,11 +1,11 @@
 /**
  * @module B-activities/modals
- * @description Handles modal submissions for scheduled activities (sorties) and LFG (quick calls).
+ * @description Gere les soumissions de modals pour les activites planifiees (sorties) et le LFG (appels rapides).
  *
- * Flow (sortie): parse fields → validate date (Europe/Paris TZ) → create DB → create reminders → post embed → audit
- * Flow (LFG): parse fields → smart matching (via matching.ts) or direct creation → post embed → audit
+ * Flux (sortie) : parse des champs → validation date (fuseau Europe/Paris) → creation DB → creation rappels → envoi embed → audit
+ * Flux (LFG) : parse des champs → matching intelligent (via matching.ts) ou creation directe → envoi embed → audit
  *
- * Depends on: core/database, core/audit, B-activities/views, B-activities/matching
+ * Depend de : core/database, core/audit, B-activities/views, B-activities/matching
  */
 
 import { ModalSubmitInteraction, TextChannel } from 'discord.js';

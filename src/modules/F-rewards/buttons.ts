@@ -1,11 +1,11 @@
 /**
  * @module F-rewards/buttons
- * @description Handles reward button interactions: claim and dispute.
+ * @description Gere les interactions boutons des recompenses : reclamation et contestation.
  *
- * Each handler validates ownership, delegates state transition to reward.service,
- * then updates the Discord embed.
+ * Chaque handler valide la propriete, delegue la transition d'etat a reward.service,
+ * puis met a jour l'embed Discord.
  *
- * Depends on: services/reward, F-rewards/views
+ * Depend de : services/reward, F-rewards/views
  */
 
 import { ButtonInteraction, TextChannel } from 'discord.js';

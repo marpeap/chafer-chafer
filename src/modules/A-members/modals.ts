@@ -1,10 +1,10 @@
 /**
  * @module A-members/modals
- * @description Handles modal submissions for member profiles: creation, editing, professions200.
+ * @description Gere les soumissions de modals pour les profils membres : creation, edition, professions200.
  *
- * Flow: user fills modal → parse fields → validate → upsert DB → notify officers (create) or reply (edit)
+ * Flux : l'utilisateur remplit le modal → parse des champs → validation → upsert DB → notifier les officiers (creation) ou repondre (edition)
  *
- * Depends on: core/database, core/audit, validators/profession, A-members/views
+ * Depend de : core/database, core/audit, validators/profession, A-members/views
  */
 
 import { ModalSubmitInteraction, TextChannel, GuildMember } from 'discord.js';

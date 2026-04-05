@@ -1,12 +1,12 @@
 /**
  * @module services/member
- * @description Member lifecycle: approval, rejection, profile stats, glandeur toggle.
+ * @description Cycle de vie des membres : approbation, refus, statistiques profil, toggle glandeur.
  *
- * Encapsulates all business logic for member management — handlers only parse
- * Discord interactions and call these functions with plain data.
+ * Encapsule toute la logique metier de gestion des membres — les handlers ne font
+ * que parser les interactions Discord et appeler ces fonctions avec des donnees brutes.
  *
- * Used by: A-members/buttons.ts (approve, reject, glandeur, profile stats)
- * Depends on: core/database, core/audit
+ * Utilise par : A-members/buttons.ts (approve, reject, glandeur, profil stats)
+ * Depend de : core/database, core/audit
  */
 
 import { db } from '../core/database.js';
@@ -45,10 +45,10 @@ export interface GlandeurToggleResult {
 // ────────────────── Profile Stats ──────────────────
 
 /**
- * Fetch aggregated stats for a member's profile: activity participation,
- * crafts made/fulfilled, rewards received.
+ * Recupere les statistiques agregees du profil d'un membre : participations aux activites,
+ * crafts demandes/realises, recompenses recues.
  *
- * Called by: A-members/buttons.ts → handleProfile
+ * Appele par : A-members/buttons.ts → handleProfile
  */
 export async function getProfileStats(guildId: string, userId: string): Promise<ProfileStats> {
   const [activityCount, quickCallCount, craftsMade, craftsFulfilled, rewardsPaid] = await Promise.all([
@@ -65,13 +65,13 @@ export async function getProfileStats(guildId: string, userId: string): Promise<
 // ────────────────── Approve ──────────────────
 
 /**
- * Approve a pending member profile.
+ * Approuve un profil membre en attente.
  *
- * Flow: validate status → update DB → fetch guild config for role → audit log
- * Does NOT handle Discord-specific actions (role assignment, DM, message update)
- * — those stay in the handler because they need the interaction object.
+ * Flux : valider le statut → maj DB → recuperer la config guilde pour le role → log audit
+ * Ne gere PAS les actions Discord (attribution de role, DM, maj du message)
+ * — celles-ci restent dans le handler car elles necessitent l'objet interaction.
  *
- * Called by: A-members/buttons.ts → handleApprove
+ * Appele par : A-members/buttons.ts → handleApprove
  */
 export async function approveMember(
   guildId: string,
@@ -110,11 +110,11 @@ export async function approveMember(
 // ────────────────── Reject ──────────────────
 
 /**
- * Reject a pending member profile.
+ * Refuse un profil membre en attente.
  *
- * Flow: validate status → update DB → audit log
+ * Flux : valider le statut → maj DB → log audit
  *
- * Called by: A-members/buttons.ts → handleReject
+ * Appele par : A-members/buttons.ts → handleReject
  */
 export async function rejectMember(
   guildId: string,
@@ -148,12 +148,12 @@ export async function rejectMember(
 // ────────────────── Glandeur Toggle ──────────────────
 
 /**
- * Toggle "Glandeur Dispo" status for a member.
+ * Bascule le statut "Glandeur Dispo" d'un membre.
  *
- * When toggled ON: member is visible as available for crafts, activities, and LFG.
- * Syncs 3 tables: playerProfile.globalAvailable, crafterAvailability, professionProfile.
+ * Quand active : le membre est visible comme disponible pour les crafts, activites et LFG.
+ * Synchronise 3 tables : playerProfile.globalAvailable, crafterAvailability, professionProfile.
  *
- * Called by: A-members/buttons.ts → handleGlandeurDispo
+ * Appele par : A-members/buttons.ts → handleGlandeurDispo
  */
 export async function toggleGlandeurDispo(
   guildId: string,
@@ -170,7 +170,7 @@ export async function toggleGlandeurDispo(
 
   const newAvailable = !profile.globalAvailable;
 
-  // Sync all 3 availability sources
+  // Synchronise les 3 sources de disponibilite
   await db().playerProfile.update({
     where: { id: profile.id },
     data: { globalAvailable: newAvailable },

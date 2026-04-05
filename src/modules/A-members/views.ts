@@ -11,12 +11,12 @@ import {
 } from 'discord.js';
 /**
  * @module A-members/views
- * @description Discord embed builders for member profiles and pending requests.
+ * @description Constructeurs d'embeds Discord pour les profils membres et les demandes en attente.
  *
- * Pure display layer — no database calls, no side effects.
+ * Couche d'affichage pure — pas d'appels base de donnees, pas d'effets de bord.
  *
- * Used by: A-members/buttons.ts, A-members/modals.ts, panel/modals.ts (admin profil)
- * Depends on: views/base (shared embed utilities), services/member (ProfileStats type)
+ * Utilise par : A-members/buttons.ts, A-members/modals.ts, panel/modals.ts (admin profil)
+ * Depend de : views/base (utilitaires embed partages), services/member (type ProfileStats)
  */
 
 import { baseEmbed, Colors, Emoji, truncate, formatDate } from '../../views/base.js';

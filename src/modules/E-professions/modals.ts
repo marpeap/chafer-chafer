@@ -1,11 +1,11 @@
 /**
  * @module E-professions/modals
- * @description Handles modal submissions for profession enrollment and craft requests.
+ * @description Gere les soumissions de modals pour l'inscription aux metiers et les demandes de craft.
  *
- * Flow (inscription): modal → canonicalize profession → upsert DB → reply
- * Flow (craft): modal → create request → enrich from DofusDude API → post to channel → reply
+ * Flux (inscription) : modal → canonicalisation du metier → upsert DB → reponse
+ * Flux (craft) : modal → creation demande → enrichissement via API DofusDude → envoi dans le salon → reponse
  *
- * Depends on: core/database, validators/profession, integrations/dofusdude, E-professions/views
+ * Depend de : core/database, validators/profession, integrations/dofusdude, E-professions/views
  */
 
 import { ModalSubmitInteraction, TextChannel } from 'discord.js';

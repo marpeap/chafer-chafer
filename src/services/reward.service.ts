@@ -1,21 +1,21 @@
 /**
  * @module services/reward
- * @description Reward lifecycle: creation, claiming, disputes, payment, cancellation.
+ * @description Cycle de vie des recompenses : creation, reclamation, contestation, paiement, annulation.
  *
- * Each reward follows a state machine:
+ * Chaque recompense suit une machine a etats :
  *   claimable → claimed → paid
  *   claimable → disputed
  *   claimable → cancelled
  *
- * Every state transition creates a ledger entry for auditability.
+ * Chaque transition d'etat cree une entree dans le ledger pour la tracabilite.
  *
- * Used by:
- *   - F-rewards/modals.ts (create)
- *   - F-rewards/buttons.ts (claim, dispute)
- *   - F-rewards/commands.ts (pay, cancel)
- *   - B-activities/buttons.ts (release rewards for activity participants)
+ * Utilise par :
+ *   - F-rewards/modals.ts (creation)
+ *   - F-rewards/buttons.ts (reclamation, contestation)
+ *   - F-rewards/commands.ts (paiement, annulation)
+ *   - B-activities/buttons.ts (distribution des recompenses aux participants)
  *
- * Depends on: core/database, core/audit
+ * Depend de : core/database, core/audit
  */
 
 import { db } from '../core/database.js';
@@ -48,12 +48,12 @@ export interface TransitionResult {
 // ────────────────── Create ──────────────────
 
 /**
- * Create a new reward and its initial ledger entry.
+ * Cree une nouvelle recompense et son entree initiale dans le ledger.
  *
- * Does NOT handle Discord message posting — that stays in the handler
- * because it needs the interaction/channel context.
+ * Ne gere PAS l'envoi du message Discord — cela reste dans le handler
+ * car il a besoin du contexte interaction/channel.
  *
- * Called by: F-rewards/modals.ts → handleRewardModal
+ * Appele par : F-rewards/modals.ts → handleRewardModal
  */
 export async function createReward(params: CreateRewardParams): Promise<CreateRewardResult> {
   const reward = await db().reward.create({
@@ -94,12 +94,12 @@ export async function createReward(params: CreateRewardParams): Promise<CreateRe
 // ────────────────── State Transitions ──────────────────
 
 /**
- * Transition a reward to a new status with validation and ledger tracking.
+ * Fait transiter une recompense vers un nouveau statut avec validation et suivi ledger.
  *
- * @param validFromStatuses - Which statuses allow this transition
- * @param newStatus - Target status
- * @param auditAction - Action name for the audit log
- * @param extraData - Additional fields to set on the reward (e.g. claimedAt, paidAt)
+ * @param validFromStatuses - Statuts autorisant cette transition
+ * @param newStatus - Statut cible
+ * @param auditAction - Nom de l'action pour le log d'audit
+ * @param extraData - Champs supplementaires a mettre a jour (ex : claimedAt, paidAt)
  */
 async function transitionReward(
   guildId: string,
@@ -148,11 +148,11 @@ async function transitionReward(
 }
 
 /**
- * Claim a reward — only the recipient can claim.
+ * Reclamer une recompense — seul le destinataire peut reclamer.
  *
- * State: claimable → claimed
+ * Etat : claimable → claimed
  *
- * Called by: F-rewards/buttons.ts → handleClaim
+ * Appele par : F-rewards/buttons.ts → handleClaim
  */
 export async function claimReward(guildId: string, rewardId: number, userId: string): Promise<TransitionResult> {
   const reward = await db().reward.findFirst({ where: { id: rewardId, guildId } });
@@ -173,11 +173,11 @@ export async function claimReward(guildId: string, rewardId: number, userId: str
 }
 
 /**
- * Dispute a reward — only the recipient can dispute.
+ * Contester une recompense — seul le destinataire peut contester.
  *
- * State: claimable → disputed
+ * Etat : claimable → disputed
  *
- * Called by: F-rewards/buttons.ts → handleDispute
+ * Appele par : F-rewards/buttons.ts → handleDispute
  */
 export async function disputeReward(guildId: string, rewardId: number, userId: string): Promise<TransitionResult> {
   const reward = await db().reward.findFirst({ where: { id: rewardId, guildId } });
@@ -198,31 +198,31 @@ export async function disputeReward(guildId: string, rewardId: number, userId: s
 }
 
 /**
- * Mark a reward as paid — officers/admins only (permission check is in handler).
+ * Marquer une recompense comme payee — officiers/admins uniquement (verification des permissions dans le handler).
  *
- * State: claimed → paid
+ * Etat : claimed → paid
  *
- * Called by: F-rewards/commands.ts → handlePayer
+ * Appele par : F-rewards/commands.ts → handlePayer
  */
 export async function payReward(guildId: string, rewardId: number, paidBy: string): Promise<TransitionResult> {
   return transitionReward(guildId, rewardId, paidBy, ['claimed'], 'paid', 'reward.paid', { paidAt: new Date() });
 }
 
 /**
- * Cancel a reward — officers/admins only (permission check is in handler).
+ * Annuler une recompense — officiers/admins uniquement (verification des permissions dans le handler).
  *
- * State: pending|claimable → cancelled
+ * Etat : pending|claimable → cancelled
  *
- * Called by: F-rewards/commands.ts → handleAnnuler
+ * Appele par : F-rewards/commands.ts → handleAnnuler
  */
 export async function cancelReward(guildId: string, rewardId: number, cancelledBy: string): Promise<TransitionResult> {
   return transitionReward(guildId, rewardId, cancelledBy, ['pending', 'claimable'], 'cancelled', 'reward.cancelled');
 }
 
 /**
- * Save the Discord message reference on a reward (for future embed updates).
+ * Sauvegarde la reference du message Discord sur une recompense (pour les futures mises a jour de l'embed).
  *
- * Called by: F-rewards/modals.ts after posting the reward card
+ * Appele par : F-rewards/modals.ts apres l'envoi de la carte recompense
  */
 export async function saveRewardMessageRef(
   guildId: string,

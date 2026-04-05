@@ -1,18 +1,18 @@
 import { Guild, GuildMember } from 'discord.js';
 
 /**
- * Resolve a guild member from flexible user input.
+ * Resout un membre de guilde a partir d'une saisie utilisateur flexible.
  *
- * Handles 3 formats:
- *  1. Raw Discord ID: "123456789012345678"
- *  2. Mention format: "<@123456789012345678>" or "<@!123456789012345678>"
- *  3. Username / display name: "@Overim", "Overim", "overim"
+ * Gere 3 formats :
+ *  1. ID Discord brut : "123456789012345678"
+ *  2. Format mention : "<@123456789012345678>" ou "<@!123456789012345678>"
+ *  3. Pseudo / nom d'affichage : "@Overim", "Overim", "overim"
  *
- * Discord modal TextInputs never resolve mentions — users type "@pseudo"
- * but the bot receives the literal string, not "<@id>". This helper
- * bridges that gap by falling back to a member search by name.
+ * Les TextInput des modals Discord ne resolvent jamais les mentions — l'utilisateur
+ * tape "@pseudo" mais le bot recoit la chaine litterale, pas "<@id>". Ce helper
+ * comble ce manque en cherchant par nom en dernier recours.
  *
- * Returns the GuildMember if found, null otherwise.
+ * Retourne le GuildMember si trouve, null sinon.
  */
 export async function resolveMember(
   guild: Guild,
@@ -21,22 +21,22 @@ export async function resolveMember(
   const trimmed = input.trim();
   if (!trimmed) return null;
 
-  // 1. Extract ID from mention format <@id> or <@!id>
+  // 1. Extraire l'ID du format mention <@id> ou <@!id>
   const mentionMatch = trimmed.match(/^<@!?(\d{17,19})>$/);
   if (mentionMatch) {
     return guild.members.fetch(mentionMatch[1]).catch(() => null);
   }
 
-  // 2. Raw numeric ID
+  // 2. ID numerique brut
   if (/^\d{17,19}$/.test(trimmed)) {
     return guild.members.fetch(trimmed).catch(() => null);
   }
 
-  // 3. Username / display name lookup (strip leading @ if present)
+  // 3. Recherche par pseudo / nom d'affichage (retire le @ en debut si present)
   const name = trimmed.startsWith('@') ? trimmed.slice(1) : trimmed;
   const lower = name.toLowerCase();
 
-  // Search through cached members first (fast path)
+  // Chercher d'abord dans les membres en cache (chemin rapide)
   const cached = guild.members.cache.find(
     (m) =>
       m.user.username.toLowerCase() === lower ||
@@ -45,7 +45,7 @@ export async function resolveMember(
   );
   if (cached) return cached;
 
-  // Fallback: fetch from Discord API (handles uncached members)
+  // Dernier recours : appel API Discord (pour les membres non mis en cache)
   try {
     const fetched = await guild.members.fetch({ query: name, limit: 5 });
     const exact = fetched.find(
@@ -61,9 +61,9 @@ export async function resolveMember(
 }
 
 /**
- * Extract just the user ID from flexible input, without fetching.
- * Returns null if the input isn't a valid ID or mention format.
- * Use resolveMember() when you need the full GuildMember object.
+ * Extrait uniquement l'ID utilisateur d'une saisie flexible, sans appel API.
+ * Retourne null si la saisie n'est pas un ID valide ou un format mention.
+ * Utiliser resolveMember() quand on a besoin de l'objet GuildMember complet.
  */
 export function parseUserId(input: string): string | null {
   const trimmed = input.trim();

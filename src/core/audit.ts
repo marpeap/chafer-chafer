@@ -1,12 +1,12 @@
 /**
  * @module core/audit
- * @description Centralized audit logging: persists to DB and posts to the guild's #logs-bot channel.
+ * @description Journalisation d'audit centralisee : persiste en DB et publie dans le salon #logs-bot de la guilde.
  *
- * Every significant user action (member approval, reward creation, activity signup, etc.)
- * calls audit() to create a traceable log entry.
+ * Chaque action significative (approbation membre, creation recompense, inscription activite, etc.)
+ * appelle audit() pour creer une entree tracable.
  *
- * Used by: services/member, services/reward, A-members/modals, B-activities/modals, E-professions/modals
- * Depends on: core/database, core/client, views/base (Colors)
+ * Utilise par : services/member, services/reward, A-members/modals, B-activities/modals, E-professions/modals
+ * Depend de : core/database, core/client, views/base (Colors)
  */
 
 import { TextChannel, EmbedBuilder } from 'discord.js';
@@ -27,10 +27,10 @@ export interface AuditEntry {
 }
 
 /**
- * Write an audit log entry to the database and post a summary embed
- * to the guild's configured log channel (if any).
+ * Ecrit une entree d'audit en base de donnees et publie un embed de resume
+ * dans le salon de logs configure de la guilde (si existant).
  *
- * Silently catches errors — audit failures should never break the main flow.
+ * Capture silencieusement les erreurs — un echec d'audit ne doit jamais casser le flux principal.
  */
 export async function audit(entry: AuditEntry): Promise<void> {
   try {
@@ -45,7 +45,7 @@ export async function audit(entry: AuditEntry): Promise<void> {
       },
     });
 
-    // Post to #logs-bot if configured
+    // Publier dans #logs-bot si configure
     const guild = await db().discordGuild.findUnique({
       where: { guildId: entry.guildId },
     });

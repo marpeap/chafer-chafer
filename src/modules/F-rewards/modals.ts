@@ -1,11 +1,11 @@
 /**
  * @module F-rewards/modals
- * @description Handles the reward creation modal. Parses input, resolves recipient,
- * delegates creation to reward.service, then posts the reward card.
+ * @description Gere le modal de creation de recompense. Parse la saisie, resout le destinataire,
+ * delegue la creation a reward.service, puis publie la carte recompense.
  *
- * Flow: parse fields → resolve member → service.createReward → post embed → save message ref
+ * Flux : parse des champs → resolution du membre → service.createReward → envoi embed → sauvegarde ref message
  *
- * Depends on: services/reward, core/resolve-member, core/permissions, F-rewards/views
+ * Depend de : services/reward, core/resolve-member, core/permissions, F-rewards/views
  */
 
 import { ModalSubmitInteraction, TextChannel, GuildMember } from 'discord.js';

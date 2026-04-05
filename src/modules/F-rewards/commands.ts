@@ -1,12 +1,12 @@
 /**
  * @module F-rewards/commands
- * @description Slash command handlers for /recompense: creer, liste, payer, annuler.
+ * @description Handlers des commandes slash /recompense : creer, liste, payer, annuler.
  *
- * "creer" opens a modal (handled by F-rewards/modals.ts).
- * "liste" is a read-only query.
- * "payer" and "annuler" delegate state transitions to reward.service.
+ * "creer" ouvre un modal (gere par F-rewards/modals.ts).
+ * "liste" est une requete en lecture seule.
+ * "payer" et "annuler" deleguent les transitions d'etat a reward.service.
  *
- * Depends on: services/reward, core/database (for read-only queries), F-rewards/views
+ * Depend de : services/reward, core/database (pour les requetes lecture), F-rewards/views
  */
 
 import {
@@ -109,7 +109,7 @@ async function handleListe(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ────────────────── /recompense payer <id> ──────────────────
 
-/** Pay a reward — delegates state transition to reward.service */
+/** Payer une recompense — delegue la transition d'etat a reward.service */
 async function handlePayer(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
   const rewardId = interaction.options.getInteger('id', true);
@@ -121,7 +121,7 @@ async function handlePayer(interaction: ChatInputCommandInteraction): Promise<vo
     return;
   }
 
-  // Update original Discord message embed if it exists
+  // Mettre a jour l'embed du message Discord original s'il existe
   const reward = result.reward!;
   if (reward.channelId && reward.messageId) {
     try {
@@ -144,7 +144,7 @@ async function handlePayer(interaction: ChatInputCommandInteraction): Promise<vo
 
 // ────────────────── /recompense annuler <id> ──────────────────
 
-/** Cancel a reward — delegates state transition to reward.service */
+/** Annuler une recompense — delegue la transition d'etat a reward.service */
 async function handleAnnuler(interaction: ChatInputCommandInteraction): Promise<void> {
   const guildId = interaction.guildId!;
   const rewardId = interaction.options.getInteger('id', true);
@@ -156,7 +156,7 @@ async function handleAnnuler(interaction: ChatInputCommandInteraction): Promise<
     return;
   }
 
-  // Update original Discord message embed if it exists
+  // Mettre a jour l'embed du message Discord original s'il existe
   const reward = result.reward!;
   if (reward.channelId && reward.messageId) {
     try {

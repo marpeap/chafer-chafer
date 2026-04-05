@@ -1,11 +1,11 @@
 /**
  * @module A-members/buttons
- * @description Handles button interactions for member management: join, profile, approve, reject, glandeur.
+ * @description Gere les interactions boutons pour la gestion des membres : rejoindre, profil, approuver, refuser, glandeur.
  *
- * Each handler parses the Discord interaction, delegates business logic to member.service,
- * then handles Discord-specific responses (embeds, DMs, role assignments).
+ * Chaque handler parse l'interaction Discord, delegue la logique metier a member.service,
+ * puis gere les reponses Discord (embeds, DMs, attribution de roles).
  *
- * Depends on: services/member, core/permissions, A-members/views
+ * Depend de : services/member, core/permissions, A-members/views
  */
 
 import { ButtonInteraction, EmbedBuilder, GuildMember } from 'discord.js';
